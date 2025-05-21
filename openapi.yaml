@@ -1,0 +1,826 @@
+openapi: 3.0.0
+info:
+    title: AirClass API
+    description: API for managing classrooms, attendance, and educational resources
+    version: 1.0.0
+    contact:
+        name: AirClass Team
+        email: support@airclass.com
+
+servers:
+    - url: /airclass-api
+      description: API base URL
+
+components:
+    securitySchemes:
+        BearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+
+    schemas:
+        ApiResponse:
+            type: object
+            required:
+                - status
+                - message
+            properties:
+                status:
+                    type: boolean
+                    description: Indicates if the request was successful
+                message:
+                    type: string
+                    description: Response message
+                data:
+                    type: object
+                    description: Response data (if any)
+                    nullable: true
+
+        ErrorResponse:
+            type: object
+            required:
+                - status
+                - message
+            properties:
+                status:
+                    type: boolean
+                    example: false
+                message:
+                    type: string
+                    description: Error message
+
+        Error:
+            type: object
+            properties:
+                error:
+                    type: string
+                    description: Error message
+
+        User:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                name:
+                    type: string
+                email:
+                    type: string
+                    format: email
+                role:
+                    type: string
+                    enum: [student, teacher, admin]
+                created_at:
+                    type: string
+                    format: date-time
+                updated_at:
+                    type: string
+                    format: date-time
+
+        Classroom:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                teacher_id:
+                    type: integer
+                    format: int64
+                    description: ID of the teacher who owns this classroom
+                teacher_name:
+                    type: string
+                    description: Name of the teacher who owns this classroom
+                code:
+                    type: string
+                ip:
+                    type: string
+                    format: ipv4
+                port:
+                    type: integer
+                    minimum: 1
+                    maximum: 65535
+                status:
+                    type: integer
+                    enum: [0, 1]
+                    description: 0 = inactive, 1 = active
+                attendance_count:
+                    type: integer
+                    description: Number of attendance records for today
+                created_at:
+                    type: string
+                    format: date-time
+                updated_at:
+                    type: string
+                    format: date-time
+
+        Attendance:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                classroom_id:
+                    type: integer
+                    format: int64
+                user_id:
+                    type: integer
+                    format: int64
+                attendance_session_id:
+                    type: integer
+                    format: int64
+                    description: ID of the attendance session this record belongs to
+                status:
+                    type: integer
+                    enum: [0, 1]
+                    description: 0 = pending, 1 = marked
+                user_name:
+                    type: string
+                classroom_code:
+                    type: string
+                created_at:
+                    type: string
+                    format: date-time
+                updated_at:
+                    type: string
+                    format: date-time
+
+        AttendanceCode:
+            type: object
+            properties:
+                code:
+                    type: string
+                attendance_session_id:
+                    type: integer
+                    format: int64
+                    description: ID of the attendance session this code belongs to
+                expires_in:
+                    type: string
+                    example: "5 minutes"
+
+        Image:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                classroom_id:
+                    type: integer
+                    format: int64
+                full_path:
+                    type: string
+                created_at:
+                    type: string
+                    format: date-time
+
+        Slide:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                classroom_id:
+                    type: integer
+                    format: int64
+                full_path:
+                    type: string
+                created_at:
+                    type: string
+                    format: date-time
+
+        Request:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                classroom_id:
+                    type: integer
+                    format: int64
+                user_id:
+                    type: integer
+                    format: int64
+                type:
+                    type: string
+                    enum: [question, clarification, help]
+                description:
+                    type: string
+                status:
+                    type: string
+                    enum: [pending, approved, rejected]
+                user_name:
+                    type: string
+                user_email:
+                    type: string
+                created_at:
+                    type: string
+                    format: date-time
+                updated_at:
+                    type: string
+                    format: date-time
+
+paths:
+    /auth/login:
+        post:
+            summary: User login
+            tags: [Auth]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - email
+                                - password
+                            properties:
+                                email:
+                                    type: string
+                                    format: email
+                                password:
+                                    type: string
+                                    format: password
+            responses:
+                "200":
+                    description: Login successful
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  token:
+                                                      type: string
+                                                  user:
+                                                      $ref: "#/components/schemas/User"
+                "401":
+                    description: Invalid credentials
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /auth/register:
+        post:
+            summary: User registration
+            tags: [Auth]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - name
+                                - email
+                                - password
+                                - role
+                            properties:
+                                name:
+                                    type: string
+                                email:
+                                    type: string
+                                    format: email
+                                password:
+                                    type: string
+                                    format: password
+                                role:
+                                    type: string
+                                    enum: [student, teacher, admin]
+            responses:
+                "201":
+                    description: Registration successful
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  token:
+                                                      type: string
+                                                  user:
+                                                      $ref: "#/components/schemas/User"
+                "400":
+                    description: Invalid input
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /classroom:
+        get:
+            summary: List classrooms
+            tags: [Classroom]
+            security:
+                - BearerAuth: []
+            parameters:
+                - name: id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by classroom ID
+            responses:
+                "200":
+                    description: List of classrooms
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: array
+                                              items:
+                                                  $ref: "#/components/schemas/Classroom"
+        post:
+            summary: Create classroom
+            tags: [Classroom]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - code
+                                - ip
+                                - port
+                            properties:
+                                code:
+                                    type: string
+                                ip:
+                                    type: string
+                                    format: ipv4
+                                port:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 65535
+                                status:
+                                    type: integer
+                                    enum: [0, 1]
+                                    description: 0 = inactive, 1 = active
+            responses:
+                "201":
+                    description: Classroom created
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  classroom_id:
+                                                      type: integer
+                                                  teacher_id:
+                                                      type: integer
+                                                      description: ID of the teacher who owns this classroom
+        put:
+            summary: Update classroom
+            tags: [Classroom]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - id
+                                - code
+                                - ip
+                                - port
+                            properties:
+                                id:
+                                    type: integer
+                                code:
+                                    type: string
+                                ip:
+                                    type: string
+                                    format: ipv4
+                                port:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 65535
+                                status:
+                                    type: integer
+                                    enum: [0, 1]
+            responses:
+                "200":
+                    description: Classroom updated
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ApiResponse"
+        delete:
+            summary: Delete classroom
+            tags: [Classroom]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - id
+                            properties:
+                                id:
+                                    type: integer
+            responses:
+                "200":
+                    description: Classroom deleted
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ApiResponse"
+
+    /attendance:
+        get:
+            summary: List attendance records
+            tags: [Attendance]
+            security:
+                - BearerAuth: []
+            parameters:
+                - name: classroom_id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by classroom ID
+                - name: user_id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by user ID
+                - name: attendance_session_id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by attendance session ID
+            responses:
+                "200":
+                    description: List of attendance records
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: array
+                                              items:
+                                                  $ref: "#/components/schemas/Attendance"
+        post:
+            summary: Mark attendance
+            tags: [Attendance]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - classroom_id
+                                - code
+                            properties:
+                                classroom_id:
+                                    type: integer
+                                code:
+                                    type: string
+            responses:
+                "201":
+                    description: Attendance marked
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  attendance_id:
+                                                      type: integer
+
+    /attendance/code:
+        post:
+            summary: Generate attendance code
+            tags: [Attendance]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - classroom_id
+                            properties:
+                                classroom_id:
+                                    type: integer
+            responses:
+                "201":
+                    description: Attendance code generated
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              $ref: "#/components/schemas/AttendanceCode"
+
+    /image:
+        get:
+            summary: List images
+            tags: [Image]
+            security:
+                - BearerAuth: []
+            parameters:
+                - name: classroom_id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by classroom ID
+                - name: id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by image ID
+            responses:
+                "200":
+                    description: List of images
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: array
+                                              items:
+                                                  $ref: "#/components/schemas/Image"
+        post:
+            summary: Upload image
+            tags: [Image]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            required:
+                                - classroom_id
+                                - image
+                            properties:
+                                classroom_id:
+                                    type: integer
+                                image:
+                                    type: string
+                                    format: binary
+            responses:
+                "201":
+                    description: Image uploaded
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  image_id:
+                                                      type: integer
+                                                  path:
+                                                      type: string
+
+    /slide:
+        get:
+            summary: List slides
+            tags: [Slide]
+            security:
+                - BearerAuth: []
+            parameters:
+                - name: classroom_id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by classroom ID
+                - name: id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by slide ID
+            responses:
+                "200":
+                    description: List of slides
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: array
+                                              items:
+                                                  $ref: "#/components/schemas/Slide"
+        post:
+            summary: Upload slide
+            tags: [Slide]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            required:
+                                - classroom_id
+                                - slide
+                            properties:
+                                classroom_id:
+                                    type: integer
+                                slide:
+                                    type: string
+                                    format: binary
+            responses:
+                "201":
+                    description: Slide uploaded
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  slide_id:
+                                                      type: integer
+                                                  path:
+                                                      type: string
+
+    /request:
+        get:
+            summary: List requests
+            tags: [Request]
+            security:
+                - BearerAuth: []
+            parameters:
+                - name: classroom_id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by classroom ID
+                - name: id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by request ID
+            responses:
+                "200":
+                    description: List of requests
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: array
+                                              items:
+                                                  $ref: "#/components/schemas/Request"
+        post:
+            summary: Create request
+            tags: [Request]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - classroom_id
+                                - type
+                                - description
+                            properties:
+                                classroom_id:
+                                    type: integer
+                                type:
+                                    type: string
+                                    enum: [question, clarification, help]
+                                description:
+                                    type: string
+            responses:
+                "201":
+                    description: Request created
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  request_id:
+                                                      type: integer
+                                                  status:
+                                                      type: string
+                                                      enum: [pending]
+        put:
+            summary: Update request
+            tags: [Request]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - id
+                                - status
+                            properties:
+                                id:
+                                    type: integer
+                                status:
+                                    type: string
+                                    enum: [approved, rejected]
+            responses:
+                "200":
+                    description: Request updated
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ApiResponse"
+        delete:
+            summary: Delete request
+            tags: [Request]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - id
+                            properties:
+                                id:
+                                    type: integer
+            responses:
+                "200":
+                    description: Request deleted
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ApiResponse"
+
+tags:
+    - name: Auth
+      description: Authentication endpoints
+    - name: Classroom
+      description: Classroom management endpoints
+    - name: Attendance
+      description: Attendance management endpoints
+    - name: Image
+      description: Image management endpoints
+    - name: Slide
+      description: Slide management endpoints
+    - name: Request
+      description: Request management endpoints

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>AirClass API Documentation</title>
+        <link
+            rel="stylesheet"
+            type="text/css"
+            href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css"
+        />
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            #swagger-ui {
+                max-width: 1460px;
+                margin: 0 auto;
+            }
+            /* Hide the top bar */
+            .swagger-ui .topbar {
+                display: none !important;
+            }
+            /* Adjust the main content to start from the top */
+            .swagger-ui .wrapper {
+                padding-top: 0 !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="swagger-ui"></div>
+        <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+        <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js"></script>
+        <script>
+            window.onload = function () {
+                const ui = SwaggerUIBundle({
+                    url: "/airclass-api/openapi.yaml",
+                    dom_id: "#swagger-ui",
+                    deepLinking: true,
+                    presets: [
+                        SwaggerUIBundle.presets.apis,
+                        SwaggerUIStandalonePreset,
+                    ],
+                    plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+                    layout: "BaseLayout",
+                    docExpansion: "list",
+                    defaultModelsExpandDepth: 1,
+                    defaultModelExpandDepth: 1,
+                    defaultModelRendering: "model",
+                    displayRequestDuration: true,
+                    filter: true,
+                    showExtensions: true,
+                    showCommonExtensions: true,
+                    displayOperationId: false,
+                    syntaxHighlight: {
+                        activated: true,
+                        theme: "monokai",
+                    },
+                });
+                window.ui = ui;
+            };
+        </script>
+    </body>
+</html>

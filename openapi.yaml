@@ -83,6 +83,9 @@ components:
                 id:
                     type: integer
                     format: int64
+                code:
+                    type: string
+                    description: Unique 6-digit classroom code
                 teacher_id:
                     type: integer
                     format: int64
@@ -90,8 +93,6 @@ components:
                 teacher_name:
                     type: string
                     description: Name of the teacher who owns this classroom
-                code:
-                    type: string
                 ip:
                     type: string
                     format: ipv4
@@ -128,15 +129,31 @@ components:
                 attendance_session_id:
                     type: integer
                     format: int64
-                    description: ID of the attendance session this record belongs to
-                status:
-                    type: integer
-                    enum: [0, 1]
-                    description: 0 = pending, 1 = marked
-                user_name:
+                    description: ID of the attendance code session
+                student_name:
                     type: string
+                    description: Name of the student who marked attendance
+                student_email:
+                    type: string
+                    format: email
+                    description: Email of the student who marked attendance
                 classroom_code:
                     type: string
+                    description: Code of the classroom
+                teacher_id:
+                    type: integer
+                    format: int64
+                    description: ID of the teacher who owns the classroom
+                teacher_name:
+                    type: string
+                    description: Name of the teacher who owns the classroom
+                attendance_date:
+                    type: string
+                    format: date
+                    description: Date when attendance was marked
+                attendance_code:
+                    type: string
+                    description: The attendance code used to mark attendance
                 created_at:
                     type: string
                     format: date-time
@@ -147,15 +164,34 @@ components:
         AttendanceCode:
             type: object
             properties:
-                code:
-                    type: string
-                attendance_session_id:
+                id:
                     type: integer
                     format: int64
-                    description: ID of the attendance session this code belongs to
+                code:
+                    type: string
+                    description: 6-character attendance code
+                classroom_id:
+                    type: integer
+                    format: int64
+                    description: ID of the classroom this code belongs to
+                status:
+                    type: integer
+                    enum: [0, 1]
+                    description: 0 = inactive, 1 = active
+                expires_at:
+                    type: string
+                    format: date-time
+                    description: Exact time when the code expires
                 expires_in:
                     type: string
                     example: "5 minutes"
+                    description: Human-readable expiration time
+                created_at:
+                    type: string
+                    format: date-time
+                updated_at:
+                    type: string
+                    format: date-time
 
         Image:
             type: object
@@ -316,19 +352,13 @@ paths:
 
     /classroom:
         get:
-            summary: List classrooms
+            summary: Get active classrooms for current user
             tags: [Classroom]
             security:
                 - BearerAuth: []
-            parameters:
-                - name: id
-                  in: query
-                  schema:
-                      type: integer
-                  description: Filter by classroom ID
             responses:
                 "200":
-                    description: List of classrooms
+                    description: List of active classrooms
                     content:
                         application/json:
                             schema:
@@ -341,7 +371,7 @@ paths:
                                               items:
                                                   $ref: "#/components/schemas/Classroom"
         post:
-            summary: Create classroom
+            summary: Create a new classroom
             tags: [Classroom]
             security:
                 - BearerAuth: []
@@ -352,12 +382,9 @@ paths:
                         schema:
                             type: object
                             required:
-                                - code
                                 - ip
                                 - port
                             properties:
-                                code:
-                                    type: string
                                 ip:
                                     type: string
                                     format: ipv4
@@ -365,13 +392,9 @@ paths:
                                     type: integer
                                     minimum: 1
                                     maximum: 65535
-                                status:
-                                    type: integer
-                                    enum: [0, 1]
-                                    description: 0 = inactive, 1 = active
             responses:
                 "201":
-                    description: Classroom created
+                    description: Classroom created successfully
                     content:
                         application/json:
                             schema:
@@ -384,11 +407,11 @@ paths:
                                               properties:
                                                   classroom_id:
                                                       type: integer
-                                                  teacher_id:
-                                                      type: integer
-                                                      description: ID of the teacher who owns this classroom
+                                                      format: int64
+                                                  code:
+                                                      type: string
         put:
-            summary: Update classroom
+            summary: Update classroom status
             tags: [Classroom]
             security:
                 - BearerAuth: []
@@ -400,58 +423,35 @@ paths:
                             type: object
                             required:
                                 - id
-                                - code
-                                - ip
-                                - port
+                                - status
                             properties:
                                 id:
                                     type: integer
-                                code:
-                                    type: string
-                                ip:
-                                    type: string
-                                    format: ipv4
-                                port:
-                                    type: integer
-                                    minimum: 1
-                                    maximum: 65535
+                                    format: int64
                                 status:
-                                    type: integer
-                                    enum: [0, 1]
+                                    type: boolean
+                                    description: true for active, false for inactive
             responses:
                 "200":
-                    description: Classroom updated
+                    description: Classroom status updated successfully
                     content:
                         application/json:
                             schema:
-                                $ref: "#/components/schemas/ApiResponse"
-        delete:
-            summary: Delete classroom
-            tags: [Classroom]
-            security:
-                - BearerAuth: []
-            requestBody:
-                required: true
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                            required:
-                                - id
-                            properties:
-                                id:
-                                    type: integer
-            responses:
-                "200":
-                    description: Classroom deleted
-                    content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/ApiResponse"
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              $ref: "#/components/schemas/Classroom"
 
     /attendance:
         get:
-            summary: List attendance records
+            summary: Get attendance records
+            description: |
+                Get attendance records for a classroom. Teachers can only view their own classrooms.
+                Can filter by either classroom_id or classroom code.
+                Returns detailed attendance information including student and teacher details,
+                and the attendance code used.
             tags: [Attendance]
             security:
                 - BearerAuth: []
@@ -460,17 +460,8 @@ paths:
                   in: query
                   schema:
                       type: integer
+                      format: int64
                   description: Filter by classroom ID
-                - name: user_id
-                  in: query
-                  schema:
-                      type: integer
-                  description: Filter by user ID
-                - name: attendance_session_id
-                  in: query
-                  schema:
-                      type: integer
-                  description: Filter by attendance session ID
             responses:
                 "200":
                     description: List of attendance records
@@ -482,11 +473,36 @@ paths:
                                     - type: object
                                       properties:
                                           data:
-                                              type: array
-                                              items:
-                                                  $ref: "#/components/schemas/Attendance"
+                                              type: object
+                                              properties:
+                                                  total_students:
+                                                      type: integer
+                                                      description: Total number of students who marked attendance
+                                                  attendance_list:
+                                                      type: array
+                                                      items:
+                                                          $ref: "#/components/schemas/Attendance"
+                "400":
+                    description: Missing required parameter (classroom_id or code)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                    description: Unauthorized to view this classroom's attendance
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
         post:
-            summary: Mark attendance
+            summary: Mark attendance using code
+            description: |
+                Mark attendance for a classroom using an attendance code.
+                Only students can mark attendance.
+                The code must be valid and not expired (5 minutes).
+                Students can only mark attendance once per day per classroom.
+                Uses database transactions and row locking to ensure data consistency.
+                The attendance code is automatically invalidated when all students have marked attendance.
             tags: [Attendance]
             security:
                 - BearerAuth: []
@@ -502,11 +518,14 @@ paths:
                             properties:
                                 classroom_id:
                                     type: integer
+                                    format: int64
+                                    description: ID of the classroom
                                 code:
                                     type: string
+                                    description: 6-character attendance code
             responses:
                 "201":
-                    description: Attendance marked
+                    description: Attendance marked successfully
                     content:
                         application/json:
                             schema:
@@ -519,10 +538,39 @@ paths:
                                               properties:
                                                   attendance_id:
                                                       type: integer
+                                                      format: int64
+                                                      description: ID of the created attendance record
+                                                  attendance_code:
+                                                      type: string
+                                                      description: The attendance code used
+                "400":
+                    description: Invalid or expired code
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                    description: Unauthorized - Only students can mark attendance or already marked attendance for today
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "500":
+                    description: Database error or transaction failure
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 
     /attendance/code:
         post:
             summary: Generate attendance code
+            description: |
+                Generate a new attendance code for a classroom.
+                Only teachers can generate codes for their own active classrooms.
+                Only one active code is allowed per classroom.
+                Codes expire after 5 minutes.
+                Verifies classroom ownership and active status before generating code.
             tags: [Attendance]
             security:
                 - BearerAuth: []
@@ -537,9 +585,11 @@ paths:
                             properties:
                                 classroom_id:
                                     type: integer
+                                    format: int64
+                                    description: ID of the classroom
             responses:
                 "201":
-                    description: Attendance code generated
+                    description: Attendance code generated successfully
                     content:
                         application/json:
                             schema:
@@ -549,6 +599,18 @@ paths:
                                       properties:
                                           data:
                                               $ref: "#/components/schemas/AttendanceCode"
+                "400":
+                    description: Invalid classroom or classroom is not active
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                    description: Unauthorized - Only teachers can generate codes or already has an active code
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 
     /image:
         get:

@@ -13,36 +13,16 @@ class ClassroomController extends BaseController {
     }
 
     public function get_classroom() {
-        $id = isset($_GET['id']) ? (int)$_GET['id'] : null;
-        $status = isset($_GET['status']) ? (int)$_GET['status'] : null;
-
         $query = "SELECT c.*, 
                         u.name as teacher_name,
                         (SELECT COUNT(*) FROM attendance a WHERE a.classroom_id = c.id AND DATE(a.created_at) = CURDATE()) as attendance_count
                  FROM classroom c 
                  LEFT JOIN user u ON c.teacher_id = u.id 
-                 WHERE 1=1";
-        $params = [];
-        $types = "";
-
-        if ($id) {
-            $query .= " AND c.id = ?";
-            $params[] = $id;
-            $types .= "i";
-        }
-
-        if ($status !== null) {
-            $query .= " AND c.status = ?";
-            $params[] = $status;
-            $types .= "i";
-        }
-
-        $query .= " ORDER BY c.created_at DESC";
+                 WHERE c.teacher_id = ? AND c.status = 1
+                 ORDER BY c.created_at DESC";
 
         $stmt = $this->conn->prepare($query);
-        if (!empty($params)) {
-            $stmt->bind_param($types, ...$params);
-        }
+        $stmt->bind_param("i", $this->user['id']);
         $stmt->execute();
         $result = $stmt->get_result();
 
@@ -51,16 +31,31 @@ class ClassroomController extends BaseController {
             $classrooms[] = $row;
         }
 
-        $this->sendResponse($classrooms, 'Classrooms retrieved successfully');
+        $this->sendResponse($classrooms, 'Active classrooms retrieved successfully');
         $stmt->close();
     }
 
     public function post_classroom() {
         $this->checkTeacherOrAdmin();
 
-        $this->validateRequiredFields(['code', 'ip', 'port']);
+        $this->validateRequiredFields(['ip', 'port']);
 
-        $code = $this->sanitizeString($this->input['code']);
+        // Generate unique 6-digit classroom code using timestamp and random number
+        $timestamp = time();
+        $random = mt_rand(0, 999); // 0-999 random number
+        $code = substr(($timestamp . str_pad($random, 3, '0', STR_PAD_LEFT)), -6);
+
+        // Verify code uniqueness
+        $query = "SELECT id FROM classroom WHERE code = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bind_param("s", $code);
+        $stmt->execute();
+        if ($stmt->get_result()->num_rows > 0) {
+            $random = mt_rand(0, 999);
+            $code = substr(($timestamp . str_pad($random, 3, '0', STR_PAD_LEFT)), -6);
+        }
+        $stmt->close();
+
         $ip = $this->sanitizeString($this->input['ip']);
         $port = (int)$this->input['port'];
         $status = isset($this->input['status']) ? (int)$this->input['status'] : 1; // Default to active
@@ -89,13 +84,14 @@ class ClassroomController extends BaseController {
         }
 
         // Create classroom
-        $query = "INSERT INTO classroom (code, ip, port, status, teacher_id) VALUES (?, ?, ?, ?, ?)";
+        $query = "INSERT INTO classroom (code, ip, port, teacher_id) VALUES (?, ?, ?, ?)";
         $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("ssiii", $code, $ip, $port, $status, $teacher_id);
+        $stmt->bind_param("ssii", $code, $ip, $port, $teacher_id);
 
         if ($stmt->execute()) {
             $this->sendResponse([
-                'classroom_id' => $this->conn->insert_id
+                'classroom_id' => $this->conn->insert_id,
+                'code' => $code
             ], 'Classroom created successfully', 201);
         } else {
             $this->sendError('Failed to create classroom: ' . $this->conn->error);
@@ -107,10 +103,19 @@ class ClassroomController extends BaseController {
     public function put_classroom() {
         $this->checkTeacherOrAdmin();
 
-        $this->validateRequiredFields(['id', 'status']);
+        $this->validateRequiredFields(['id']);
 
         $id = (int)$this->input['id'];
-        $status = (int)$this->input['status'];
+        
+        // Handle both boolean and numeric status values
+        if (!isset($this->input['status'])) {
+            $this->sendError('Missing required field: status');
+        }
+        
+        // Convert boolean or numeric status to integer
+        $status = is_bool($this->input['status']) ? 
+            ($this->input['status'] ? 1 : 0) : 
+            (int)$this->input['status'];
 
         // Verify classroom ownership
         $query = "SELECT teacher_id FROM classroom WHERE id = ?";
@@ -135,7 +140,20 @@ class ClassroomController extends BaseController {
 
         if ($stmt->execute()) {
             if ($stmt->affected_rows > 0) {
-                $this->sendResponse(null, 'Classroom status updated successfully');
+                // Get the updated classroom data
+                $query = "SELECT c.*, 
+                                u.name as teacher_name,
+                                (SELECT COUNT(*) FROM attendance a WHERE a.classroom_id = c.id AND DATE(a.created_at) = CURDATE()) as attendance_count
+                         FROM classroom c 
+                         LEFT JOIN user u ON c.teacher_id = u.id 
+                         WHERE c.id = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bind_param("i", $id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $classroom = $result->fetch_assoc();
+
+                $this->sendResponse($classroom, 'Classroom status updated successfully');
             } else {
                 $this->sendError('Classroom not found', 404);
             }

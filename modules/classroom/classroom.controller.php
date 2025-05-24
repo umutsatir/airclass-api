@@ -15,7 +15,9 @@ class ClassroomController extends BaseController {
     public function get_classroom() {
         $query = "SELECT c.*, 
                         u.name as teacher_name,
-                        (SELECT COUNT(*) FROM attendance a WHERE a.classroom_id = c.id AND DATE(a.created_at) = CURDATE()) as attendance_count
+                        (SELECT COUNT(*) FROM attendance a 
+                         JOIN attendance_code ac ON a.attendance_session_id = ac.id 
+                         WHERE ac.classroom_id = c.id AND DATE(a.created_at) = CURDATE()) as attendance_count
                  FROM classroom c 
                  LEFT JOIN user u ON c.teacher_id = u.id 
                  WHERE c.teacher_id = ? AND c.status = 1
@@ -224,8 +226,9 @@ class ClassroomController extends BaseController {
                     c.code as classroom_code
                  FROM attendance a
                  JOIN user u ON a.user_id = u.id
-                 JOIN classroom c ON a.classroom_id = c.id
-                 WHERE a.classroom_id = ?
+                 JOIN attendance_code ac ON a.attendance_session_id = ac.id
+                 JOIN classroom c ON ac.classroom_id = c.id
+                 WHERE ac.classroom_id = ?
                  AND DATE(a.created_at) = ?
                  ORDER BY a.created_at ASC";
         

@@ -1,6 +1,9 @@
 # AirClass API
 
-A RESTful API for managing virtual classrooms, attendance tracking, and educational resources.
+## Other Repositories
+-   [AirClass Mobile](https://github.com/emirgit/AirClass-Mobile) - Mobile application
+-   [AirClass Desktop](https://github.com/emirgit/AirClass-Desktop) - Desktop application
+-   [AirClass Hardware](https://github.com/emirgit/AirClass-Hardware) - Hardware integration
 
 ## Features
 

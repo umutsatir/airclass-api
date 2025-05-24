@@ -120,9 +120,6 @@ components:
                 id:
                     type: integer
                     format: int64
-                classroom_id:
-                    type: integer
-                    format: int64
                 user_id:
                     type: integer
                     format: int64
@@ -140,6 +137,10 @@ components:
                 classroom_code:
                     type: string
                     description: Code of the classroom
+                classroom_id:
+                    type: integer
+                    format: int64
+                    description: ID of the classroom (from attendance_code)
                 teacher_id:
                     type: integer
                     format: int64
@@ -181,17 +182,15 @@ components:
                 expires_at:
                     type: string
                     format: date-time
-                    description: Exact time when the code expires
-                expires_in:
-                    type: string
-                    example: "5 minutes"
-                    description: Human-readable expiration time
+                    description: Time when the code expires (in server timezone, UTC+3)
                 created_at:
                     type: string
                     format: date-time
+                    description: Time when the code was created (in server timezone, UTC+3)
                 updated_at:
                     type: string
                     format: date-time
+                    description: Time when the code was last updated (in server timezone, UTC+3)
 
         Image:
             type: object
@@ -499,10 +498,11 @@ paths:
             description: |
                 Mark attendance for a classroom using an attendance code.
                 Only students can mark attendance.
-                The code must be valid and not expired (5 minutes).
+                The code must be valid and not expired (5 minutes from creation).
                 Students can only mark attendance once per day per classroom.
                 Uses database transactions and row locking to ensure data consistency.
                 The attendance code is automatically invalidated when all students have marked attendance.
+                All times are in server timezone (UTC+3).
             tags: [Attendance]
             security:
                 - BearerAuth: []
@@ -569,7 +569,8 @@ paths:
                 Generate a new attendance code for a classroom.
                 Only teachers can generate codes for their own active classrooms.
                 Only one active code is allowed per classroom.
-                Codes expire after 5 minutes.
+                Codes expire after the specified time (default 60 seconds, max 1 hour).
+                All times are in server timezone (UTC+3).
                 Verifies classroom ownership and active status before generating code.
             tags: [Attendance]
             security:
@@ -587,6 +588,12 @@ paths:
                                     type: integer
                                     format: int64
                                     description: ID of the classroom
+                                expires_in:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 3600
+                                    default: 60
+                                    description: Expiration time in seconds (max 3600 seconds / 1 hour)
             responses:
                 "201":
                     description: Attendance code generated successfully
@@ -598,9 +605,24 @@ paths:
                                     - type: object
                                       properties:
                                           data:
-                                              $ref: "#/components/schemas/AttendanceCode"
+                                              type: object
+                                              properties:
+                                                  code:
+                                                      type: string
+                                                      description: 6-character attendance code
+                                                  classroom_id:
+                                                      type: integer
+                                                      format: int64
+                                                      description: ID of the classroom
+                                                  expires_at:
+                                                      type: string
+                                                      format: date-time
+                                                      description: Time when the code expires (in server timezone, UTC+3)
+                                                  expires_in:
+                                                      type: string
+                                                      description: Human-readable expiration time (e.g., "30 seconds" or "2 minutes")
                 "400":
-                    description: Invalid classroom or classroom is not active
+                    description: Invalid classroom, classroom is not active, or invalid expiration time
                     content:
                         application/json:
                             schema:

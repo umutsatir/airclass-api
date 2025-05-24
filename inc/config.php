@@ -59,6 +59,10 @@ define('UPLOAD_DIR', __DIR__ . '/../' . (getenv('UPLOAD_DIR') ?: 'uploads/'));
 define('APP_ENV', getenv('APP_ENV') ?: 'development');
 define('APP_DEBUG', getenv('APP_DEBUG') ?: true);
 
+// Time zone configuration
+define('APP_TIMEZONE', getenv('APP_TIMEZONE') ?: 'Europe/Istanbul');
+date_default_timezone_set(APP_TIMEZONE);
+
 // Error reporting based on environment
 if (APP_DEBUG) {
     error_reporting(E_ALL);
@@ -67,9 +71,6 @@ if (APP_DEBUG) {
     error_reporting(0);
     ini_set('display_errors', 0);
 }
-
-// Time zone
-date_default_timezone_set('UTC');
 
 // Database connection
 function getConnection() {
@@ -80,6 +81,13 @@ function getConnection() {
     }
     
     $conn->set_charset("utf8mb4");
+    
+    // Set MySQL timezone to match PHP timezone
+    $timezone = new DateTimeZone(APP_TIMEZONE);
+    $offset = $timezone->getOffset(new DateTime()) / 3600;
+    $sign = $offset >= 0 ? '+' : '-';
+    $conn->query("SET time_zone = '{$sign}{abs($offset)}:00'");
+    
     return $conn;
 }
 

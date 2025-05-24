@@ -1,0 +1,63 @@
+name: Deploy to Production
+
+on:
+    push:
+        branches:
+            - stable
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Install SSHpass
+              run: sudo apt-get install -y sshpass
+
+            - name: Deploy to server
+              env:
+                  SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+              run: |
+                  # Create a temporary directory on the server
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /tmp/airclass-deploy"
+
+                  # Copy files to the server
+                  sshpass -p "$SERVER_PASSWORD" rsync -avz --delete \
+                    --exclude '.git*' \
+                    --exclude 'node_modules' \
+                    --exclude 'tests' \
+                    --exclude '.env.example' \
+                    --exclude 'README.md' \
+                    --exclude '.github' \
+                    ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/tmp/airclass-deploy/
+
+                  # Execute deployment commands on the server
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && \
+                    # Backup current version
+                    if [ -d 'current' ]; then \
+                      mv current backup_$(date +%Y%m%d_%H%M%S); \
+                    fi && \
+                    # Move new version to current
+                    mv tmp/airclass-deploy current && \
+                    # Set proper permissions
+                    chmod -R 755 current && \
+                    chmod -R 777 current/uploads && \
+                    # Update environment file if it doesn't exist
+                    if [ ! -f 'current/.env' ]; then \
+                      cp .env.example current/.env; \
+                    fi && \
+                    # Cleanup
+                    rm -rf tmp/airclass-deploy && \
+                    # Restart PHP-FPM if needed
+                    sudo -S systemctl restart php8.2-fpm <<< '$SERVER_PASSWORD'"
+
+            - name: Notify deployment status
+              if: always()
+              run: |
+                  if [ "${{ job.status }}" == "success" ]; then
+                    echo "Deployment completed successfully!"
+                  else
+                    echo "Deployment failed!"
+                  fi

@@ -60,20 +60,29 @@ jobs:
                     sudo -S chmod 644 .htaccess <<< '$SERVER_PASSWORD' && \
                     # Enable mod_rewrite if not already enabled
                     sudo -S a2enmod rewrite <<< '$SERVER_PASSWORD' && \
-                    # Create Apache virtual host config if it doesn't exist
+                    # Create Apache virtual host config
                     echo '<VirtualHost *:80>
                         ServerAdmin webmaster@localhost
+                        ServerName ${{ secrets.SERVER_HOST }}
                         DocumentRoot ${{ secrets.DEPLOY_PATH }}/airclass-api
                         <Directory ${{ secrets.DEPLOY_PATH }}/airclass-api>
                             Options Indexes FollowSymLinks
                             AllowOverride All
                             Require all granted
+                            DirectoryIndex index.php
                         </Directory>
                         ErrorLog \${APACHE_LOG_DIR}/airclass-api-error.log
                         CustomLog \${APACHE_LOG_DIR}/airclass-api-access.log combined
                     </VirtualHost>' | sudo -S tee /etc/apache2/sites-available/airclass-api.conf <<< '$SERVER_PASSWORD' && \
-                    # Enable the site if not already enabled
+                    # Test Apache configuration
+                    sudo -S apache2ctl configtest <<< '$SERVER_PASSWORD' && \
+                    # Enable the site
                     sudo -S a2ensite airclass-api.conf <<< '$SERVER_PASSWORD' && \
-                    # Restart services
-                    sudo -S systemctl restart apache2 <<< '$SERVER_PASSWORD' && \
-                    sudo -S systemctl restart php8.2-fpm <<< '$SERVER_PASSWORD'"
+                    # Disable default site if it exists
+                    sudo -S a2dissite 000-default.conf <<< '$SERVER_PASSWORD' || true && \
+                    # Reload Apache configuration
+                    sudo -S systemctl reload apache2 <<< '$SERVER_PASSWORD' && \
+                    # Restart PHP-FPM
+                    sudo -S systemctl restart php8.2-fpm <<< '$SERVER_PASSWORD' && \
+                    # Show Apache status
+                    sudo -S systemctl status apache2 <<< '$SERVER_PASSWORD'"

@@ -20,8 +20,8 @@ jobs:
               env:
                   SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
               run: |
-                  # Create a temporary directory on the server
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /tmp/airclass-deploy"
+                  # Create deployment directory structure
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.DEPLOY_PATH }}/tmp/airclass-deploy"
 
                   # Backup existing .env file if it exists
                   sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "if [ -f '${{ secrets.DEPLOY_PATH }}/current/.env' ]; then cp ${{ secrets.DEPLOY_PATH }}/current/.env ${{ secrets.DEPLOY_PATH }}/.env.backup; fi"
@@ -38,7 +38,7 @@ jobs:
                     ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/tmp/airclass-deploy/
 
                   # Execute deployment commands on the server
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && \
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && \
                     # Backup current version
                     if [ -d 'current' ]; then \
                       mv current backup_$(date +%Y%m%d_%H%M%S); \

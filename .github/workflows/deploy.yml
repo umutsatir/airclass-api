@@ -54,3 +54,5 @@ jobs:
                     sudo -S chmod -R 755 . <<< '$SERVER_PASSWORD' && \
                     sudo -S chmod -R 775 uploads logs <<< '$SERVER_PASSWORD' && \
                     sudo -S systemctl restart php8.2-fpm <<< '$SERVER_PASSWORD'"
+
+

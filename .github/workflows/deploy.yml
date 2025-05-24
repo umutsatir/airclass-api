@@ -41,13 +41,20 @@ jobs:
                     fi && \
                     # Move new version to current
                     mv tmp/airclass-deploy current && \
-                    # Set proper permissions
-                    chmod -R 755 current && \
-                    chmod -R 777 current/uploads && \
+                    # Set proper ownership and permissions
+                    sudo -S chown -R www-data:www-data current <<< '$SERVER_PASSWORD' && \
+                    sudo -S chmod -R 755 current <<< '$SERVER_PASSWORD' && \
+                    sudo -S chmod -R 775 current/uploads <<< '$SERVER_PASSWORD' && \
+                    sudo -S chmod -R 775 current/logs <<< '$SERVER_PASSWORD' && \
                     # Update environment file if it doesn't exist
                     if [ ! -f 'current/.env' ]; then \
-                      cp .env.example current/.env; \
+                      cp .env.example current/.env && \
+                      sudo -S chown www-data:www-data current/.env <<< '$SERVER_PASSWORD' && \
+                      sudo -S chmod 640 current/.env <<< '$SERVER_PASSWORD'; \
                     fi && \
+                    # Create required directories if they don't exist
+                    sudo -S mkdir -p current/uploads current/logs <<< '$SERVER_PASSWORD' && \
+                    sudo -S chown -R www-data:www-data current/uploads current/logs <<< '$SERVER_PASSWORD' && \
                     # Cleanup
                     rm -rf tmp/airclass-deploy && \
                     # Restart PHP-FPM if needed

@@ -47,68 +47,10 @@ jobs:
                     --exclude 'README.md' \
                     ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/airclass-api/
 
-                  # Set permissions and configure Apache
+                  # Set permissions and restart PHP
                   sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "\
-                    # Check Apache status and start if needed
-                    if ! sudo -S systemctl is-active --quiet apache2 <<< '$SERVER_PASSWORD'; then
-                      echo 'Starting Apache...' && \
-                      sudo -S systemctl start apache2 <<< '$SERVER_PASSWORD' && \
-                      sleep 5 && \
-                      if ! sudo -S systemctl is-active --quiet apache2 <<< '$SERVER_PASSWORD'; then
-                        echo 'Apache failed to start. Checking status:' && \
-                        sudo -S systemctl status apache2 <<< '$SERVER_PASSWORD' && \
-                        echo 'Checking Apache error log:' && \
-                        sudo -S tail -n 50 /var/log/apache2/error.log <<< '$SERVER_PASSWORD' && \
-                        exit 1
-                      fi
-                    fi && \
-                    # Enable mod_rewrite (suppress output)
-                    sudo -S a2enmod rewrite > /dev/null 2>&1 <<< '$SERVER_PASSWORD' && \
-                    # Create required directories and set permissions
                     cd ${{ secrets.DEPLOY_PATH }}/airclass-api && \
-                    sudo -S mkdir -p uploads logs <<< '$SERVER_PASSWORD' && \
                     sudo -S chown -R www-data:www-data . <<< '$SERVER_PASSWORD' && \
                     sudo -S chmod -R 755 . <<< '$SERVER_PASSWORD' && \
                     sudo -S chmod -R 775 uploads logs <<< '$SERVER_PASSWORD' && \
-                    sudo -S chmod 644 .htaccess <<< '$SERVER_PASSWORD' && \
-                    # Create Apache virtual host config
-                    echo '<VirtualHost *:80>
-                        ServerAdmin webmaster@localhost
-                        ServerName ${{ secrets.SERVER_HOST }}
-                        DocumentRoot ${{ secrets.DEPLOY_PATH }}/airclass-api
-                        <Directory ${{ secrets.DEPLOY_PATH }}/airclass-api>
-                            Options Indexes FollowSymLinks
-                            AllowOverride All
-                            Require all granted
-                            DirectoryIndex index.php
-                        </Directory>
-                        ErrorLog \${APACHE_LOG_DIR}/airclass-api-error.log
-                        CustomLog \${APACHE_LOG_DIR}/airclass-api-access.log combined
-                    </VirtualHost>' | sudo -S tee /etc/apache2/sites-available/airclass-api.conf <<< '$SERVER_PASSWORD' && \
-                    # Test Apache configuration
-                    if ! sudo -S apache2ctl configtest <<< '$SERVER_PASSWORD'; then
-                      echo 'Apache configuration test failed. Checking error log:' && \
-                      sudo -S tail -n 50 /var/log/apache2/error.log <<< '$SERVER_PASSWORD' && \
-                      exit 1
-                    fi && \
-                    # Enable the site
-                    sudo -S a2ensite airclass-api.conf <<< '$SERVER_PASSWORD' && \
-                    # Disable default site if it exists
-                    sudo -S a2dissite 000-default.conf <<< '$SERVER_PASSWORD' || true && \
-                    # Restart Apache (not reload) to ensure clean state
-                    sudo -S systemctl restart apache2 <<< '$SERVER_PASSWORD' && \
-                    # Wait for Apache to fully start
-                    sleep 5 && \
-                    # Verify Apache is running
-                    if ! sudo -S systemctl is-active --quiet apache2 <<< '$SERVER_PASSWORD'; then
-                      echo 'Apache failed to restart. Checking status:' && \
-                      sudo -S systemctl status apache2 <<< '$SERVER_PASSWORD' && \
-                      echo 'Checking Apache error log:' && \
-                      sudo -S tail -n 50 /var/log/apache2/error.log <<< '$SERVER_PASSWORD' && \
-                      exit 1
-                    fi && \
-                    # Restart PHP-FPM
-                    sudo -S systemctl restart php8.2-fpm <<< '$SERVER_PASSWORD' && \
-                    # Show final Apache status
-                    echo 'Apache configuration completed successfully. Status:' && \
-                    sudo -S systemctl status apache2 <<< '$SERVER_PASSWORD'"
+                    sudo -S systemctl restart php8.2-fpm <<< '$SERVER_PASSWORD'"

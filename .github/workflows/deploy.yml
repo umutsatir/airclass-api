@@ -13,6 +13,16 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: "8.2"
+                  extensions: mysqli, pdo_mysql
+                  coverage: none
+
+            - name: Install dependencies
+              run: composer install --no-dev --optimize-autoloader
+
             - name: Install SSHpass
               run: sudo apt-get install -y sshpass
 
@@ -24,6 +34,9 @@ jobs:
                   mkdir -p ~/.ssh
                   ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
+                  # Create airclass-api directory if it doesn't exist
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.DEPLOY_PATH }}/airclass-api"
+
                   # Upload files to server
                   sshpass -p "$SERVER_PASSWORD" rsync -avz --delete \
                     -e "ssh -o StrictHostKeyChecking=no" \
@@ -32,11 +45,11 @@ jobs:
                     --exclude '.env' \
                     --exclude '.env.example' \
                     --exclude 'README.md' \
-                    ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/
+                    ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/airclass-api/
 
                   # Set permissions and restart PHP
                   sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "\
-                    cd ${{ secrets.DEPLOY_PATH }} && \
+                    cd ${{ secrets.DEPLOY_PATH }}/airclass-api && \
                     sudo -S chown -R www-data:www-data . <<< '$SERVER_PASSWORD' && \
                     sudo -S chmod -R 755 . <<< '$SERVER_PASSWORD' && \
                     sudo -S chmod -R 775 uploads logs <<< '$SERVER_PASSWORD' && \

@@ -50,6 +50,8 @@ jobs:
                   # Set permissions, configure Apache, and restart services
                   sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "\
                     cd ${{ secrets.DEPLOY_PATH }}/airclass-api && \
+                    # Create required directories
+                    sudo -S mkdir -p uploads logs <<< '$SERVER_PASSWORD' && \
                     # Set file permissions
                     sudo -S chown -R www-data:www-data . <<< '$SERVER_PASSWORD' && \
                     sudo -S chmod -R 755 . <<< '$SERVER_PASSWORD' && \

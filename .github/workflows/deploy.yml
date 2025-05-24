@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Deploy to Server
 
 on:
     push:
@@ -16,69 +16,23 @@ jobs:
             - name: Install SSHpass
               run: sudo apt-get install -y sshpass
 
-            - name: Deploy to server
+            - name: Deploy
               env:
                   SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
               run: |
-                  # Create deployment directory structure with proper permissions
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "\
-                    # Create base directory if it doesn't exist
-                    sudo -S mkdir -p ${{ secrets.DEPLOY_PATH }} <<< '$SERVER_PASSWORD' && \
-                    # Set ownership of base directory
-                    sudo -S chown ${{ secrets.SERVER_USER }}:${{ secrets.SERVER_USER }} ${{ secrets.DEPLOY_PATH }} <<< '$SERVER_PASSWORD' && \
-                    # Create tmp directory
-                    mkdir -p ${{ secrets.DEPLOY_PATH }}/tmp/airclass-deploy && \
-                    # Set permissions for tmp directory
-                    chmod 755 ${{ secrets.DEPLOY_PATH }}/tmp"
-
-                  # Backup existing .env file if it exists
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "if [ -f '${{ secrets.DEPLOY_PATH }}/current/.env' ]; then cp ${{ secrets.DEPLOY_PATH }}/current/.env ${{ secrets.DEPLOY_PATH }}/.env.backup; fi"
-
-                  # Copy files to the server
+                  # Upload files to server
                   sshpass -p "$SERVER_PASSWORD" rsync -avz --delete \
-                    --exclude '.git*' \
-                    --exclude 'node_modules' \
-                    --exclude 'tests' \
+                    --exclude '.git' \
+                    --exclude '.github' \
                     --exclude '.env' \
                     --exclude '.env.example' \
                     --exclude 'README.md' \
-                    --exclude '.github' \
-                    ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/tmp/airclass-deploy/
+                    ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/
 
-                  # Execute deployment commands on the server
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && \
-                    # Backup current version
-                    if [ -d 'current' ]; then \
-                      mv current backup_$(date +%Y%m%d_%H%M%S); \
-                    fi && \
-                    # Move new version to current
-                    mv tmp/airclass-deploy current && \
-                    # Restore .env file
-                    if [ -f '.env.backup' ]; then \
-                      mv .env.backup current/.env; \
-                    elif [ ! -f 'current/.env' ]; then \
-                      cp current/.env.example current/.env; \
-                    fi && \
-                    # Set proper ownership and permissions
-                    sudo -S chown -R www-data:www-data current <<< '$SERVER_PASSWORD' && \
-                    sudo -S chmod -R 755 current <<< '$SERVER_PASSWORD' && \
-                    sudo -S chmod -R 775 current/uploads <<< '$SERVER_PASSWORD' && \
-                    sudo -S chmod -R 775 current/logs <<< '$SERVER_PASSWORD' && \
-                    sudo -S chown www-data:www-data current/.env <<< '$SERVER_PASSWORD' && \
-                    sudo -S chmod 640 current/.env <<< '$SERVER_PASSWORD' && \
-                    # Create required directories if they don't exist
-                    sudo -S mkdir -p current/uploads current/logs <<< '$SERVER_PASSWORD' && \
-                    sudo -S chown -R www-data:www-data current/uploads current/logs <<< '$SERVER_PASSWORD' && \
-                    # Cleanup
-                    rm -rf tmp/airclass-deploy && \
-                    # Restart PHP-FPM if needed
+                  # Set permissions and restart PHP
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "\
+                    cd ${{ secrets.DEPLOY_PATH }} && \
+                    sudo -S chown -R www-data:www-data . <<< '$SERVER_PASSWORD' && \
+                    sudo -S chmod -R 755 . <<< '$SERVER_PASSWORD' && \
+                    sudo -S chmod -R 775 uploads logs <<< '$SERVER_PASSWORD' && \
                     sudo -S systemctl restart php8.2-fpm <<< '$SERVER_PASSWORD'"
-
-            - name: Notify deployment status
-              if: always()
-              run: |
-                  if [ "${{ job.status }}" == "success" ]; then
-                    echo "Deployment completed successfully!"
-                  else
-                    echo "Deployment failed!"
-                  fi

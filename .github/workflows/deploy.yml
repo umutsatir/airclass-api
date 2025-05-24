@@ -34,6 +34,12 @@ jobs:
                   mkdir -p ~/.ssh
                   ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
+                  # Backup config file if it exists
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "\
+                    if [ -f '${{ secrets.DEPLOY_PATH }}/airclass-api/inc/config.php' ]; then \
+                      cp ${{ secrets.DEPLOY_PATH }}/airclass-api/inc/config.php ${{ secrets.DEPLOY_PATH }}/airclass-api/inc/config.php.backup; \
+                    fi"
+
                   # Create airclass-api directory if it doesn't exist
                   sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.DEPLOY_PATH }}/airclass-api"
 
@@ -47,9 +53,12 @@ jobs:
                     --exclude 'README.md' \
                     ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/airclass-api/
 
-                  # Set permissions and restart PHP
+                  # Restore config file and set permissions
                   sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "\
                     cd ${{ secrets.DEPLOY_PATH }}/airclass-api && \
+                    if [ -f 'inc/config.php.backup' ]; then \
+                      mv inc/config.php.backup inc/config.php; \
+                    fi && \
                     sudo -S chown -R www-data:www-data . <<< '$SERVER_PASSWORD' && \
                     sudo -S chmod -R 755 . <<< '$SERVER_PASSWORD' && \
                     sudo -S chmod -R 775 uploads logs <<< '$SERVER_PASSWORD' && \

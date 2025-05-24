@@ -86,7 +86,7 @@ function getConnection() {
     $timezone = new DateTimeZone(APP_TIMEZONE);
     $offset = $timezone->getOffset(new DateTime()) / 3600;
     $sign = $offset >= 0 ? '+' : '-';
-    $conn->query("SET time_zone = '{$sign}{abs($offset)}:00'");
+    $conn->query("SET time_zone = '{$sign}" . abs($offset) . ":00'");
     
     return $conn;
 }

@@ -47,19 +47,19 @@ jobs:
                     --exclude 'README.md' \
                     ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/airclass-api/
 
-                  # Set permissions, configure Apache, and restart services
+                  # Set permissions and configure Apache
                   sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "\
+                    # First, ensure Apache is running
+                    sudo -S systemctl start apache2 <<< '$SERVER_PASSWORD' && \
+                    # Enable mod_rewrite (suppress output)
+                    sudo -S a2enmod rewrite > /dev/null 2>&1 <<< '$SERVER_PASSWORD' && \
+                    # Create required directories and set permissions
                     cd ${{ secrets.DEPLOY_PATH }}/airclass-api && \
-                    # Create required directories
                     sudo -S mkdir -p uploads logs <<< '$SERVER_PASSWORD' && \
-                    # Set file permissions
                     sudo -S chown -R www-data:www-data . <<< '$SERVER_PASSWORD' && \
                     sudo -S chmod -R 755 . <<< '$SERVER_PASSWORD' && \
                     sudo -S chmod -R 775 uploads logs <<< '$SERVER_PASSWORD' && \
-                    # Ensure .htaccess exists and has correct permissions
                     sudo -S chmod 644 .htaccess <<< '$SERVER_PASSWORD' && \
-                    # Enable mod_rewrite if not already enabled
-                    sudo -S a2enmod rewrite <<< '$SERVER_PASSWORD' && \
                     # Create Apache virtual host config
                     echo '<VirtualHost *:80>
                         ServerAdmin webmaster@localhost

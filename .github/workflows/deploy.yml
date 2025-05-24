@@ -20,8 +20,13 @@ jobs:
               env:
                   SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
               run: |
+                  # Accept SSH host key
+                  mkdir -p ~/.ssh
+                  ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
                   # Upload files to server
                   sshpass -p "$SERVER_PASSWORD" rsync -avz --delete \
+                    -e "ssh -o StrictHostKeyChecking=no" \
                     --exclude '.git' \
                     --exclude '.github' \
                     --exclude '.env' \

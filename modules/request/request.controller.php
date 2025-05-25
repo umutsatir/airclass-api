@@ -6,6 +6,34 @@ class RequestController extends BaseController {
         return ['GET', 'POST', 'PUT', 'DELETE'];
     }
 
+    public function get_request_check() {
+        // Only students can check their request status
+        if ($this->user['role'] !== 'student') {
+            $this->sendError('Unauthorized: Only students can check request status', 403);
+        }
+
+        $this->validateRequiredFields(['classroom_id']);
+
+        $classroom_id = (int)$this->input['classroom_id'];
+
+        // Check if there's an active request for this student in this classroom
+        $query = "SELECT status FROM request 
+                 WHERE classroom_id = ? AND user_id = ? AND status = 'approved'
+                 ORDER BY created_at DESC LIMIT 1";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bind_param("ii", $classroom_id, $this->user['id']);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $has_active_request = $result->num_rows > 0;
+        $stmt->close();
+
+        $this->sendResponse([
+            'has_active_request' => $has_active_request
+        ], 'Request status checked successfully');
+    }
+
     public function get_request() {
         $classroom_id = isset($_GET['classroom_id']) ? (int)$_GET['classroom_id'] : null;
         $id = isset($_GET['id']) ? (int)$_GET['id'] : null;

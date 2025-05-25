@@ -59,6 +59,7 @@ jobs:
                     if [ ! -f .env ]; then cp .env.example .env; fi && \
                     mkdir -p uploads/images uploads/selfies uploads/slides storage/logs storage/framework storage/app storage/bootstrap/cache && \
                     chmod -R 755 modules storage && \
+                    sudo chmod o+x /var/www/html/airclass-api && \
                     sudo chown -R www-data:www-data /var/www/html/airclass-api/uploads && \
                     sudo chmod -R 777 /var/www/html/airclass-api/uploads && \
                     export COMPOSER_ALLOW_SUPERUSER=1 && \

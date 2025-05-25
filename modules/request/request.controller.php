@@ -28,7 +28,7 @@ class RequestController extends BaseController {
         
         if ($result->num_rows === 0) {
             $stmt->close();
-            $this->sendResponse([
+            return $this->sendResponse([
                 'hasActiveRequest' => false
             ], 'No request found for this classroom', 200, false);
         }

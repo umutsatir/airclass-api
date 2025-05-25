@@ -68,7 +68,7 @@ jobs:
                   SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
               run: |
                   # Check if the application is running
-                  if sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl -s -f https://${{ secrets.DOMAIN }}/health > /dev/null"; then
+                  if sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl -s -f https://${{ secrets.DOMAIN }}/ > /dev/null"; then
                     echo "Deployment verified successfully!"
                   else
                     echo "Deployment verification failed!"

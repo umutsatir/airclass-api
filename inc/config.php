@@ -53,7 +53,7 @@ define('DB_NAME', getenv('DB_NAME') ?: 'airclass');
 // API Configuration
 define('API_VERSION', getenv('API_VERSION') ?: '1.0.0');
 define('JWT_SECRET', getenv('JWT_SECRET') ?: 'your-secret-key');
-define('UPLOAD_DIR', __DIR__ . '/../' . (getenv('UPLOAD_DIR') ?: 'uploads/'));
+define('UPLOAD_DIR', dirname(dirname(__FILE__)) . '/' . (getenv('UPLOAD_DIR') ?: 'uploads/'));
 
 // Environment
 define('APP_ENV', getenv('APP_ENV') ?: 'development');

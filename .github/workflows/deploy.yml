@@ -27,7 +27,7 @@ jobs:
                   sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /var/www/html/airclass-api"
 
                   # Backup current version
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "if [ -d '/var/www/html/airclass-api' ]; then timestamp=\$(date +%Y%m%d_%H%M%S); mv /var/www/airclass-api \"/var/www/airclass-api_backup_\$timestamp\"; fi"
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "if [ -d '/var/www/html/airclass-api' ]; then timestamp=\$(date +%Y%m%d_%H%M%S); mv /var/www/html/airclass-api \"/var/www/html/airclass-api_backup_\$timestamp\"; fi"
 
                   # Create fresh directory
                   sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /var/www/html/airclass-api"
@@ -68,7 +68,7 @@ jobs:
                   SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
               run: |
                   # Check if the application is running
-                  if sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl -s -f https://${{ secrets.DOMAIN }}/ > /dev/null"; then
+                  if sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl -s -f https://${{ secrets.SERVER_HOST }}/airclass-api/ > /dev/null"; then
                     echo "Deployment verified successfully!"
                   else
                     echo "Deployment verification failed!"

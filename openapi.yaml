@@ -442,6 +442,108 @@ paths:
                                       properties:
                                           data:
                                               $ref: "#/components/schemas/Classroom"
+        delete:
+            summary: Delete a classroom
+            tags: [Classroom]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - id
+                            properties:
+                                id:
+                                    type: integer
+                                    format: int64
+            responses:
+                "200":
+                    description: Classroom deleted successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ApiResponse"
+
+    /classroom/join:
+        post:
+            summary: Join a classroom using a classroom code
+            description: |
+                Join a classroom using a 6-digit classroom code.
+                Only students can join classrooms.
+                Students can only be in one active classroom at a time.
+                The classroom must be active and the code must be valid.
+            tags: [Classroom]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - code
+                            properties:
+                                code:
+                                    type: string
+                                    pattern: '^\d{6}$'
+                                    description: 6-digit classroom code
+            responses:
+                "201":
+                    description: Successfully joined classroom
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  classroom:
+                                                      type: object
+                                                      properties:
+                                                          id:
+                                                              type: integer
+                                                              format: int64
+                                                          code:
+                                                              type: string
+                                                          teacher_name:
+                                                              type: string
+                                                          ip:
+                                                              type: string
+                                                              format: ipv4
+                                                          port:
+                                                              type: integer
+                                                              minimum: 1
+                                                              maximum: 65535
+                                                          student_count:
+                                                              type: integer
+                                                          created_at:
+                                                              type: string
+                                                              format: date-time
+                "400":
+                    description: Invalid classroom code format
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                    description: Unauthorized - Only students can join classrooms or already in another classroom
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                    description: Classroom not found or inactive
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 
     /attendance:
         get:

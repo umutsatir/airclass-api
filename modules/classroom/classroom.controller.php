@@ -251,4 +251,109 @@ class ClassroomController extends BaseController {
         
         $stmt->close();
     }
+
+    public function post_classroom_join() {
+        // Check if user is a student
+        if ($this->user['role'] !== 'student') {
+            $this->sendError('Unauthorized: Only students can join classrooms', 403);
+        }
+
+        $this->validateRequiredFields(['code']);
+
+        $code = $this->sanitizeString($this->input['code']);
+
+        // Validate code format (6 digits)
+        if (!preg_match('/^\d{6}$/', $code)) {
+            $this->sendError('Invalid classroom code format. Code must be 6 digits.');
+        }
+
+        // Check if classroom exists and is active
+        $query = "SELECT c.*, 
+                        u.name as teacher_name,
+                        (SELECT COUNT(*) FROM classroom_student cs 
+                         WHERE cs.classroom_id = c.id AND cs.status = 1) as student_count
+                 FROM classroom c 
+                 LEFT JOIN user u ON c.teacher_id = u.id 
+                 WHERE c.code = ? AND c.status = 1";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bind_param("s", $code);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($classroom = $result->fetch_assoc()) {
+            // Check if user is already in this classroom
+            $query = "SELECT id FROM classroom_student 
+                     WHERE classroom_id = ? AND student_id = ? AND status = 1";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("ii", $classroom['id'], $this->user['id']);
+            $stmt->execute();
+            
+            if ($stmt->get_result()->num_rows > 0) {
+                $this->sendError('You are already in this classroom');
+            }
+
+            // Check if user is already in another active classroom
+            $query = "SELECT c.id, c.code 
+                     FROM classroom_student cs 
+                     JOIN classroom c ON cs.classroom_id = c.id 
+                     WHERE cs.student_id = ? AND cs.status = 1 AND c.status = 1";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("i", $this->user['id']);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($active_classroom = $result->fetch_assoc()) {
+                $this->sendError('You are already in classroom ' . $active_classroom['code'] . '. Please leave it first.');
+            }
+
+            // Add student to classroom
+            $query = "INSERT INTO classroom_student (classroom_id, student_id, status, created_at) 
+                     VALUES (?, ?, 1, NOW())";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("ii", $classroom['id'], $this->user['id']);
+
+            if ($stmt->execute()) {
+                // Get updated classroom data
+                $query = "SELECT c.*, 
+                                u.name as teacher_name,
+                                (SELECT COUNT(*) FROM classroom_student cs 
+                                 WHERE cs.classroom_id = c.id AND cs.status = 1) as student_count
+                         FROM classroom c 
+                         LEFT JOIN user u ON c.teacher_id = u.id 
+                         WHERE c.id = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bind_param("i", $classroom['id']);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $updated_classroom = $result->fetch_assoc();
+
+                $response = [
+                    'status' => true,
+                    'message' => 'Successfully joined classroom',
+                    'data' => [
+                        'classroom' => [
+                            'id' => $updated_classroom['id'],
+                            'code' => $updated_classroom['code'],
+                            'teacher_name' => $updated_classroom['teacher_name'],
+                            'ip' => $updated_classroom['ip'],
+                            'port' => $updated_classroom['port'],
+                            'student_count' => $updated_classroom['student_count'],
+                            'created_at' => $updated_classroom['created_at']
+                        ]
+                    ]
+                ];
+
+                header('Content-Type: application/json');
+                http_response_code(201);
+                echo json_encode($response);
+            } else {
+                $this->sendError('Failed to join classroom: ' . $this->conn->error);
+            }
+        } else {
+            $this->sendError('Invalid or inactive classroom code', 404);
+        }
+
+        $stmt->close();
+    }
 } 

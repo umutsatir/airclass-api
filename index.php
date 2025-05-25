@@ -54,6 +54,7 @@ try {
         'POST /classroom' => ['ClassroomController', 'post_classroom'],
         'PUT /classroom' => ['ClassroomController', 'put_classroom'],
         'DELETE /classroom' => ['ClassroomController', 'delete_classroom'],
+        'POST /classroom/join' => ['ClassroomController', 'post_classroom_join'],
         
         // Attendance routes
         'GET /attendance' => ['AttendanceController', 'get_attendance'],

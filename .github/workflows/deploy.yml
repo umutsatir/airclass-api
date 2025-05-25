@@ -55,24 +55,13 @@ jobs:
               env:
                   SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
               run: |
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /var/www/airclass-api && if [ ! -f .env ]; then cp .env.example .env; fi && mkdir -p uploads/images uploads/selfies uploads/slides storage/logs storage/framework storage/app storage/bootstrap/cache && chmod -R 755 uploads storage modules && composer install --no-dev --optimize-autoloader && mysql -u${{ secrets.DB_USER }} -p${{ secrets.DB_PASSWORD }} ${{ secrets.DB_NAME }} << 'EOF'
-                  -- Add type column to image table if it doesn't exist
-                  ALTER TABLE image ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'image';
-
-                  -- Create uploads directory table if it doesn't exist
-                  CREATE TABLE IF NOT EXISTS uploads (
-                      id INT AUTO_INCREMENT PRIMARY KEY,
-                      classroom_id INT NOT NULL,
-                      full_path VARCHAR(255) NOT NULL,
-                      type VARCHAR(20) DEFAULT 'image',
-                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                      FOREIGN KEY (classroom_id) REFERENCES classroom(id) ON DELETE CASCADE
-                  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-                  -- Create indexes for better performance
-                  CREATE INDEX IF NOT EXISTS idx_uploads_classroom_id ON uploads(classroom_id);
-                  CREATE INDEX IF NOT EXISTS idx_uploads_type ON uploads(type);
-                  EOF && ls -dt /var/www/airclass-api_backup_* | tail -n +6 | xargs -r rm -rf"
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /var/www/airclass-api && \
+                    if [ ! -f .env ]; then cp .env.example .env; fi && \
+                    mkdir -p uploads/images uploads/selfies uploads/slides storage/logs storage/framework storage/app storage/bootstrap/cache && \
+                    chmod -R 755 uploads storage modules && \
+                    export COMPOSER_ALLOW_SUPERUSER=1 && \
+                    composer install --no-dev --optimize-autoloader && \
+                    ls -dt /var/www/airclass-api_backup_* | tail -n +6 | xargs -r rm -rf"
 
             - name: Verify deployment
               env:

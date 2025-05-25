@@ -1074,8 +1074,8 @@ paths:
                 Check if the current student has a request for a classroom and its status.
                 Returns different messages based on whether:
                 - No request exists (status: false, message: "No request found for this classroom")
-                - Request exists but is pending/rejected (status: false, message: "Request is pending or rejected")
-                - Request exists and is approved (status: true, message: "Request is approved")
+                - Request exists but is pending/rejected (status: false, message: "Request is pending or rejected", includes request_id)
+                - Request exists and is approved (status: true, message: "Request is approved", includes request_id)
             tags: [Request]
             security:
                 - BearerAuth: []
@@ -1116,6 +1116,10 @@ paths:
                                             hasActiveRequest:
                                                 type: boolean
                                                 description: Whether the student has an active approved request
+                                            request_id:
+                                                type: integer
+                                                format: int64
+                                                description: ID of the request (only present when a request exists)
                 "400":
                     description: Bad request (missing classroom_id)
                     content:

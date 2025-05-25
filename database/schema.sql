@@ -92,6 +92,28 @@ INSERT INTO `classroom` (`id`, `teacher_id`, `code`, `ip`, `port`, `status`, `cr
 -- --------------------------------------------------------
 
 --
+-- Tablo için tablo yapısı `classroom_student`
+--
+
+CREATE TABLE `classroom_student` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `classroom_id` int NOT NULL,
+  `student_id` int NOT NULL,
+  `status` tinyint NOT NULL DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_classroom_student_unique` (`classroom_id`, `student_id`, `status`),
+  KEY `idx_classroom_student_classroom` (`classroom_id`),
+  KEY `idx_classroom_student_student` (`student_id`),
+  KEY `idx_classroom_student_status` (`status`),
+  CONSTRAINT `fk_classroom_student_classroom` FOREIGN KEY (`classroom_id`) REFERENCES `classroom` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_classroom_student_student` FOREIGN KEY (`student_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Tablo için tablo yapısı `image`
 --
 

@@ -471,7 +471,7 @@ paths:
         post:
             summary: Join a classroom using a classroom code
             description: |
-                Join a classroom using a 6-digit classroom code.
+                Join a classroom using a 6-character alphanumeric classroom code.
                 Only students can join classrooms.
                 Students can only be in one active classroom at a time.
                 The classroom must be active and the code must be valid.
@@ -489,8 +489,8 @@ paths:
                             properties:
                                 code:
                                     type: string
-                                    pattern: '^\d{6}$'
-                                    description: 6-digit classroom code
+                                    pattern: "^[A-Za-z0-9]{6}$"
+                                    description: 6-character alphanumeric classroom code
             responses:
                 "201":
                     description: Successfully joined classroom
@@ -527,7 +527,7 @@ paths:
                                                               type: string
                                                               format: date-time
                 "400":
-                    description: Invalid classroom code format
+                    description: Invalid classroom code format or already a member
                     content:
                         application/json:
                             schema:

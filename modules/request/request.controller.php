@@ -160,11 +160,6 @@ class RequestController extends BaseController {
     }
 
     public function delete_request() {
-        // Only teachers can delete requests
-        if ($this->user['role'] !== 'teacher') {
-            $this->sendError('Unauthorized', 403);
-        }
-
         $this->validateRequiredFields(['id']);
 
         $id = (int)$this->input['id'];

@@ -234,11 +234,6 @@ components:
                 user_id:
                     type: integer
                     format: int64
-                type:
-                    type: string
-                    enum: [question, clarification, help]
-                description:
-                    type: string
                 status:
                     type: string
                     enum: [pending, approved, rejected]
@@ -986,57 +981,6 @@ paths:
                         application/json:
                             schema:
                                 $ref: "#/components/schemas/ErrorResponse"
-
-    /request/check:
-        get:
-            summary: Check request status
-            description: Check if the current student has an active approved request for a classroom
-            tags: [Request]
-            security:
-                - BearerAuth: []
-            parameters:
-                - name: classroom_id
-                  in: query
-                  required: true
-                  schema:
-                      type: integer
-                  description: ID of the classroom to check request status for
-            responses:
-                "200":
-                    description: Request status checked successfully
-                    content:
-                        application/json:
-                            schema:
-                                allOf:
-                                    - $ref: "#/components/schemas/ApiResponse"
-                                    - type: object
-                                      properties:
-                                          data:
-                                              type: object
-                                              properties:
-                                                  has_active_request:
-                                                      type: boolean
-                                                      description: Whether the student has an active approved request
-                "400":
-                    description: Bad request (missing classroom_id)
-                    content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/ErrorResponse"
-                "401":
-                    description: Unauthorized
-                    content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/ErrorResponse"
-                "403":
-                    description: Forbidden (not a student)
-                    content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/ErrorResponse"
-
-    /request:
         post:
             summary: Create request
             tags: [Request]
@@ -1050,16 +994,10 @@ paths:
                             type: object
                             required:
                                 - classroom_id
-                                - type
-                                - description
                             properties:
                                 classroom_id:
                                     type: integer
-                                type:
-                                    type: string
-                                    enum: [question, clarification, help]
-                                description:
-                                    type: string
+                                    description: ID of the classroom to create request for
             responses:
                 "201":
                     description: Request created
@@ -1128,6 +1066,55 @@ paths:
                         application/json:
                             schema:
                                 $ref: "#/components/schemas/ApiResponse"
+
+    /request/check:
+        get:
+            summary: Check request status
+            description: Check if the current student has an active approved request for a classroom
+            tags: [Request]
+            security:
+                - BearerAuth: []
+            parameters:
+                - name: classroom_id
+                  in: query
+                  required: true
+                  schema:
+                      type: integer
+                  description: ID of the classroom to check request status for
+            responses:
+                "200":
+                    description: Request status checked successfully
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  has_active_request:
+                                                      type: boolean
+                                                      description: Whether the student has an active approved request
+                "400":
+                    description: Bad request (missing classroom_id)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                    description: Forbidden (not a student)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 
 tags:
     - name: Auth

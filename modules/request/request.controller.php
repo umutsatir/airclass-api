@@ -92,17 +92,9 @@ class RequestController extends BaseController {
             $this->sendError('Unauthorized', 403);
         }
 
-        $this->validateRequiredFields(['classroom_id', 'type', 'description']);
+        $this->validateRequiredFields(['classroom_id']);
 
         $classroom_id = (int)$this->input['classroom_id'];
-        $type = $this->sanitizeString($this->input['type']);
-        $description = $this->sanitizeString($this->input['description']);
-
-        // Validate request type
-        $allowed_types = ['question', 'clarification', 'help'];
-        if (!in_array($type, $allowed_types)) {
-            $this->sendError('Invalid request type');
-        }
 
         // Check if classroom exists
         $stmt = $this->conn->prepare("SELECT id FROM classroom WHERE id = ?");
@@ -114,10 +106,10 @@ class RequestController extends BaseController {
         $stmt->close();
 
         // Create request
-        $query = "INSERT INTO request (user_id, classroom_id, type, description, status) 
-                 VALUES (?, ?, ?, ?, 'pending')";
+        $query = "INSERT INTO request (user_id, classroom_id, status) 
+                 VALUES (?, ?, 'pending')";
         $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("iiss", $this->user['id'], $classroom_id, $type, $description);
+        $stmt->bind_param("ii", $this->user['id'], $classroom_id);
 
         if ($stmt->execute()) {
             $this->sendResponse([

@@ -284,31 +284,81 @@ class ClassroomController extends BaseController {
             $this->sendError('Invalid or inactive classroom code', 404);
         }
 
-        // Check if user is already in another active classroom
-        $query = "SELECT c.id, c.code 
+        // Check if user is already in this classroom
+        $query = "SELECT cs.id, cs.status 
                  FROM classroom_student cs 
-                 JOIN classroom c ON cs.classroom_id = c.id 
-                 WHERE cs.student_id = ? AND cs.status = 1 AND c.status = 1";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("i", $this->user['id']);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($active_classroom = $result->fetch_assoc()) {
-            $stmt->close();
-            $this->sendError('You are already in classroom ' . $active_classroom['code'] . '. Please leave it first.');
-        }
-        $stmt->close();
-
-        // Add student to classroom
-        $query = "INSERT INTO classroom_student (classroom_id, student_id, status) VALUES (?, ?, 1)";
+                 WHERE cs.classroom_id = ? AND cs.student_id = ?";
         $stmt = $this->conn->prepare($query);
         $stmt->bind_param("ii", $classroom['id'], $this->user['id']);
-
-        if (!$stmt->execute()) {
-            $stmt->close();
-            $this->sendError('Failed to join classroom: ' . $this->conn->error);
-        }
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $existing_membership = $result->fetch_assoc();
         $stmt->close();
+
+        if ($existing_membership) {
+            if ($existing_membership['status'] == 1) {
+                // User is already active in this classroom, just return success
+                $query = "SELECT c.*, 
+                                u.name as teacher_name,
+                                (SELECT COUNT(*) FROM classroom_student cs 
+                                 WHERE cs.classroom_id = c.id AND cs.status = 1) as student_count
+                         FROM classroom c 
+                         LEFT JOIN user u ON c.teacher_id = u.id 
+                         WHERE c.id = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bind_param("i", $classroom['id']);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $updated_classroom = $result->fetch_assoc();
+                $stmt->close();
+
+                $this->sendResponse([
+                    'classroom' => [
+                        'id' => $updated_classroom['id'],
+                        'code' => $updated_classroom['code'],
+                        'teacher_name' => $updated_classroom['teacher_name'],
+                        'ip' => $updated_classroom['ip'],
+                        'port' => $updated_classroom['port'],
+                        'student_count' => $updated_classroom['student_count'],
+                        'created_at' => $updated_classroom['created_at']
+                    ]
+                ], 'Already in classroom', 200);
+                return;
+            } else {
+                // User was in this classroom but left, reactivate their membership
+                $query = "UPDATE classroom_student SET status = 1 WHERE id = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bind_param("i", $existing_membership['id']);
+                $stmt->execute();
+                $stmt->close();
+            }
+        } else {
+            // Check if user is in another active classroom
+            $query = "SELECT c.id, c.code 
+                     FROM classroom_student cs 
+                     JOIN classroom c ON cs.classroom_id = c.id 
+                     WHERE cs.student_id = ? AND cs.status = 1 AND c.status = 1";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("i", $this->user['id']);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($active_classroom = $result->fetch_assoc()) {
+                $stmt->close();
+                $this->sendError('You are already in classroom ' . $active_classroom['code'] . '. Please leave it first.');
+            }
+            $stmt->close();
+
+            // Add student to classroom
+            $query = "INSERT INTO classroom_student (classroom_id, student_id, status) VALUES (?, ?, 1)";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("ii", $classroom['id'], $this->user['id']);
+
+            if (!$stmt->execute()) {
+                $stmt->close();
+                $this->sendError('Failed to join classroom: ' . $this->conn->error);
+            }
+            $stmt->close();
+        }
 
         // Get updated classroom data
         $query = "SELECT c.*, 

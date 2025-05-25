@@ -71,6 +71,7 @@ try {
         
         // Request routes
         'GET /request' => ['RequestController', 'get_request'],
+        'GET /request/check' => ['RequestController', 'get_request_check'],
         'POST /request' => ['RequestController', 'post_request'],
         'PUT /request' => ['RequestController', 'put_request'],
         'DELETE /request' => ['RequestController', 'delete_request']

@@ -442,6 +442,138 @@ paths:
                                       properties:
                                           data:
                                               $ref: "#/components/schemas/Classroom"
+        delete:
+            summary: Delete a classroom
+            tags: [Classroom]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - id
+                            properties:
+                                id:
+                                    type: integer
+                                    format: int64
+            responses:
+                "200":
+                    description: Classroom deleted successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ApiResponse"
+
+    /classroom/join:
+        post:
+            summary: Join a classroom using a classroom code
+            description: |
+                Join a classroom using a 6-character alphanumeric classroom code.
+                Only students can join classrooms.
+                Students can only be in one active classroom at a time.
+                The classroom must be active and the code must be valid.
+            tags: [Classroom]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - code
+                            properties:
+                                code:
+                                    type: string
+                                    pattern: "^[A-Za-z0-9]{6}$"
+                                    description: 6-character alphanumeric classroom code
+            responses:
+                "201":
+                    description: Successfully joined classroom
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  classroom:
+                                                      type: object
+                                                      properties:
+                                                          id:
+                                                              type: integer
+                                                              format: int64
+                                                          code:
+                                                              type: string
+                                                          teacher_name:
+                                                              type: string
+                                                          ip:
+                                                              type: string
+                                                              format: ipv4
+                                                          port:
+                                                              type: integer
+                                                              minimum: 1
+                                                              maximum: 65535
+                                                          student_count:
+                                                              type: integer
+                                                          created_at:
+                                                              type: string
+                                                              format: date-time
+                "400":
+                    description: Invalid classroom code format or already a member
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                    description: Unauthorized - Only students can join classrooms or already in another classroom
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                    description: Classroom not found or inactive
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /classroom/leave:
+        post:
+            summary: Leave current classroom
+            description: |
+                Leave the current active classroom.
+                Only students can leave classrooms.
+                Sets the student's status to inactive (0) in the classroom_student table.
+            tags: [Classroom]
+            security:
+                - BearerAuth: []
+            responses:
+                "200":
+                    description: Successfully left classroom
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ApiResponse"
+                "403":
+                    description: Unauthorized - Only students can leave classrooms
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                    description: No active classroom found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 
     /attendance:
         get:
@@ -702,6 +834,62 @@ paths:
                                                       type: integer
                                                   path:
                                                       type: string
+
+    /upload-selfie:
+        post:
+            summary: Upload student selfie for attendance verification
+            description: |
+                Upload a selfie photo taken from the front camera before QR code scanning.
+                Only students can upload selfies.
+                The selfie is stored in uploads/selfies/{classroom_id} directory.
+            tags: [Attendance]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            required:
+                                - classroom_id
+                                - selfie
+                            properties:
+                                classroom_id:
+                                    type: integer
+                                    description: ID of the classroom
+                                selfie:
+                                    type: string
+                                    format: binary
+                                    description: Selfie photo taken from front camera
+            responses:
+                "201":
+                    description: Selfie uploaded successfully
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  path:
+                                                      type: string
+                                                      description: Path to the uploaded selfie
+                "400":
+                    description: Invalid or missing selfie file
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                    description: Unauthorized - Only students can upload selfies
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 
     /slide:
         get:

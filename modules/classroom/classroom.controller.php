@@ -15,7 +15,9 @@ class ClassroomController extends BaseController {
     public function get_classroom() {
         $query = "SELECT c.*, 
                         u.name as teacher_name,
-                        (SELECT COUNT(*) FROM attendance a WHERE a.classroom_id = c.id AND DATE(a.created_at) = CURDATE()) as attendance_count
+                        (SELECT COUNT(*) FROM attendance a 
+                         JOIN attendance_code ac ON a.attendance_session_id = ac.id 
+                         WHERE ac.classroom_id = c.id AND DATE(a.created_at) = CURDATE()) as attendance_count
                  FROM classroom c 
                  LEFT JOIN user u ON c.teacher_id = u.id 
                  WHERE c.teacher_id = ? AND c.status = 1
@@ -224,8 +226,9 @@ class ClassroomController extends BaseController {
                     c.code as classroom_code
                  FROM attendance a
                  JOIN user u ON a.user_id = u.id
-                 JOIN classroom c ON a.classroom_id = c.id
-                 WHERE a.classroom_id = ?
+                 JOIN attendance_code ac ON a.attendance_session_id = ac.id
+                 JOIN classroom c ON ac.classroom_id = c.id
+                 WHERE ac.classroom_id = ?
                  AND DATE(a.created_at) = ?
                  ORDER BY a.created_at ASC";
         
@@ -246,6 +249,134 @@ class ClassroomController extends BaseController {
             'attendance_list' => $attendance_data
         ], 'Attendance report generated successfully');
         
+        $stmt->close();
+    }
+
+    public function post_classroom_join() {
+        // Check if user is a student
+        if ($this->user['role'] != 'student') {
+            $this->sendError('Unauthorized: Only students can join classrooms', 403);
+        }
+
+        $this->validateRequiredFields(['code']);
+
+        $code = $this->sanitizeString($this->input['code']);
+
+        // Validate code format (6 alphanumeric characters)
+        if (!preg_match('/^[A-Za-z0-9]{6}$/', $code)) {
+            $this->sendError('Invalid classroom code format. Code must be 6 alphanumeric characters.');
+        }
+
+        // Check if classroom exists and is active
+        $query = "SELECT c.*, 
+                u.name as teacher_name
+             FROM classroom c 
+             LEFT JOIN user u ON c.teacher_id = u.id 
+             WHERE c.code = ? AND c.status = 1";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bind_param("s", $code);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($classroom = $result->fetch_assoc()) {
+            // Check if user is already in this classroom
+            $query = "SELECT id FROM classroom_student 
+                     WHERE classroom_id = ? AND student_id = ? AND status = 1";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("ii", $classroom['id'], $this->user['id']);
+            $stmt->execute();
+            
+            if ($stmt->get_result()->num_rows > 0) {
+                $this->sendError('You are already in this classroom');
+            }
+
+            // Check if user is already in another active classroom
+            $query = "SELECT c.id, c.code 
+                     FROM classroom_student cs 
+                     JOIN classroom c ON cs.classroom_id = c.id 
+                     WHERE cs.student_id = ? AND cs.status = 1 AND c.status = 1";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("i", $this->user['id']);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($active_classroom = $result->fetch_assoc()) {
+                $this->sendError('You are already in classroom ' . $active_classroom['code'] . '. Please leave it first.');
+            }
+
+            // Add student to classroom
+            $query = "INSERT INTO classroom_student (classroom_id, student_id, status) VALUES (?, ?, 1)";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("ii", $classroom['id'], $this->user['id']);
+
+            if ($stmt->execute()) {
+                // Get updated classroom data
+                $query = "SELECT c.*, 
+                                u.name as teacher_name,
+                                (SELECT COUNT(*) FROM classroom_student cs 
+                                 WHERE cs.classroom_id = c.id AND cs.status = 1) as student_count
+                         FROM classroom c 
+                         LEFT JOIN user u ON c.teacher_id = u.id 
+                         WHERE c.id = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bind_param("i", $classroom['id']);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $updated_classroom = $result->fetch_assoc();
+
+                $this->sendResponse([
+                    'classroom' => [
+                        'id' => $updated_classroom['id'],
+                        'code' => $updated_classroom['code'],
+                        'teacher_name' => $updated_classroom['teacher_name'],
+                        'ip' => $updated_classroom['ip'],
+                        'port' => $updated_classroom['port'],
+                        'student_count' => $updated_classroom['student_count'],
+                        'created_at' => $updated_classroom['created_at']
+                    ]
+                ], 'Successfully joined classroom', 201);
+            } else {
+                $this->sendError('Failed to join classroom: ' . $this->conn->error);
+            }
+        } else {
+            $this->sendError('Invalid or inactive classroom code', 404);
+        }
+
+        $stmt->close();
+    }
+
+    public function post_classroom_leave() {
+        // Check if user is a student
+        if ($this->user['role'] != 'student') {
+            $this->sendError('Unauthorized: Only students can leave classrooms', 403);
+        }
+
+        // Find the student's active classroom
+        $query = "SELECT cs.id, cs.classroom_id, c.code 
+                 FROM classroom_student cs 
+                 JOIN classroom c ON cs.classroom_id = c.id 
+                 WHERE cs.student_id = ? AND cs.status = 1 AND c.status = 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bind_param("i", $this->user['id']);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($active_classroom = $result->fetch_assoc()) {
+            // Update classroom_student status to inactive
+            $query = "UPDATE classroom_student SET status = 0 WHERE id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("i", $active_classroom['id']);
+
+            if ($stmt->execute()) {
+                $this->sendResponse(null, 'Successfully left classroom ' . $active_classroom['code']);
+            } else {
+                $this->sendError('Failed to leave classroom: ' . $this->conn->error);
+            }
+        } else {
+            $this->sendError('No active classroom found', 404);
+        }
+
         $stmt->close();
     }
 } 

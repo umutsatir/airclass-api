@@ -100,7 +100,7 @@ class ImageController extends BaseController {
         }
 
         // Create directory if it doesn't exist
-        $upload_dir = UPLOAD_DIR . 'selfies/' . $classroom_id . '/';
+        $upload_dir = rtrim(UPLOAD_DIR, '/') . '/selfies/' . $classroom_id . '/';
         if (!file_exists($upload_dir)) {
             if (!@mkdir($upload_dir, 0777, true)) {
                 error_log("Failed to create directory: " . $upload_dir . " - Error: " . error_get_last()['message']);

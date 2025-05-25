@@ -79,11 +79,11 @@ class BaseController {
         return htmlspecialchars(strip_tags($str));
     }
 
-    protected function sendResponse($data = null, $message = 'Success', $code = 200) {
+    protected function sendResponse($data = null, $message = 'Success', $code = 200, $status = true) {
         http_response_code($code);
         header('Content-Type: application/json');
         echo json_encode([
-            'status' => true,
+            'status' => $status,
             'message' => $message,
             'data' => $data
         ]);

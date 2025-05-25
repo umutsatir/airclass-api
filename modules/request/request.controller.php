@@ -16,9 +16,9 @@ class RequestController extends BaseController {
 
         $classroom_id = (int)$this->input['classroom_id'];
 
-        // Check if there's an active request for this student in this classroom
+        // First check if any request exists for this student in this classroom
         $query = "SELECT status FROM request 
-                 WHERE classroom_id = ? AND user_id = ? AND status = 'approved'
+                 WHERE classroom_id = ? AND user_id = ? 
                  ORDER BY created_at DESC LIMIT 1";
         
         $stmt = $this->conn->prepare($query);
@@ -26,12 +26,22 @@ class RequestController extends BaseController {
         $stmt->execute();
         $result = $stmt->get_result();
         
-        $has_active_request = $result->num_rows > 0;
+        if ($result->num_rows === 0) {
+            $stmt->close();
+            $this->sendResponse([
+                'hasActiveRequest' => false
+            ], 'No request found for this classroom', 200, false);
+        }
+
+        $row = $result->fetch_assoc();
         $stmt->close();
 
+        // If we have a request, check if it's approved
+        $has_active_request = $row['status'] === 'approved';
+        
         $this->sendResponse([
-            'has_active_request' => $has_active_request
-        ], 'Request status checked successfully');
+            'hasActiveRequest' => $has_active_request
+        ], $has_active_request ? 'Request is approved' : 'Request is pending or rejected', 200, $has_active_request);
     }
 
     public function get_request() {

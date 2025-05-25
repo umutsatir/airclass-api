@@ -1070,7 +1070,12 @@ paths:
     /request/check:
         get:
             summary: Check request status
-            description: Check if the current student has an active approved request for a classroom
+            description: |
+                Check if the current student has a request for a classroom and its status.
+                Returns different messages based on whether:
+                - No request exists (status: false, message: "No request found for this classroom")
+                - Request exists but is pending/rejected (status: false, message: "Request is pending or rejected")
+                - Request exists and is approved (status: true, message: "Request is approved")
             tags: [Request]
             security:
                 - BearerAuth: []
@@ -1087,16 +1092,30 @@ paths:
                     content:
                         application/json:
                             schema:
-                                allOf:
-                                    - $ref: "#/components/schemas/ApiResponse"
-                                    - type: object
-                                      properties:
-                                          data:
-                                              type: object
-                                              properties:
-                                                  has_active_request:
-                                                      type: boolean
-                                                      description: Whether the student has an active approved request
+                                type: object
+                                required:
+                                    - status
+                                    - message
+                                    - data
+                                properties:
+                                    status:
+                                        type: boolean
+                                        description: Whether the request is approved (true) or not (false)
+                                    message:
+                                        type: string
+                                        description: Status message indicating the request state
+                                        enum:
+                                            - No request found for this classroom
+                                            - Request is pending or rejected
+                                            - Request is approved
+                                    data:
+                                        type: object
+                                        required:
+                                            - hasActiveRequest
+                                        properties:
+                                            hasActiveRequest:
+                                                type: boolean
+                                                description: Whether the student has an active approved request
                 "400":
                     description: Bad request (missing classroom_id)
                     content:

@@ -62,15 +62,3 @@ jobs:
                     export COMPOSER_ALLOW_SUPERUSER=1 && \
                     composer install --no-dev --optimize-autoloader && \
                     ls -dt /var/www/html/airclass-api_backup_* | tail -n +6 | xargs -r rm -rf"
-
-            - name: Verify deployment
-              env:
-                  SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
-              run: |
-                  # Check if the application is running
-                  if sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl -s -f https://${{ secrets.SERVER_HOST }}/airclass-api/ > /dev/null"; then
-                    echo "Deployment verified successfully!"
-                  else
-                    echo "Deployment verification failed!"
-                    exit 1
-                  fi

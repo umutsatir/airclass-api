@@ -284,19 +284,6 @@ class ClassroomController extends BaseController {
             $this->sendError('Invalid or inactive classroom code', 404);
         }
 
-        // Check if user is already in this classroom
-        $query = "SELECT id FROM classroom_student 
-                 WHERE classroom_id = ? AND student_id = ? AND status = 1";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("ii", $classroom['id'], $this->user['id']);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows > 0) {
-            $stmt->close();
-            $this->sendError('You are already a member of this classroom');
-        }
-        $stmt->close();
-
         // Check if user is already in another active classroom
         $query = "SELECT c.id, c.code 
                  FROM classroom_student cs 

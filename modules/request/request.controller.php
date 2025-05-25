@@ -42,7 +42,7 @@ class RequestController extends BaseController {
         $this->sendResponse([
             'hasActiveRequest' => $has_active_request,
             'request_id' => (int)$row['id']
-        ], $has_active_request ? 'Request is approved' : 'Request is pending or rejected', 200, $has_active_request);
+        ], $has_active_request ? 'Request is approved' : 'Request is pending or rejected', 200);
     }
 
     public function get_request() {

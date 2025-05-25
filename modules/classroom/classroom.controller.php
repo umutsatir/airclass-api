@@ -286,10 +286,6 @@ class ClassroomController extends BaseController {
             $stmt = $this->conn->prepare($query);
             $stmt->bind_param("ii", $classroom['id'], $this->user['id']);
             $stmt->execute();
-            
-            if ($stmt->get_result()->num_rows > 0) {
-                $this->sendError('You are already in this classroom');
-            }
 
             // Check if user is already in another active classroom
             $query = "SELECT c.id, c.code 

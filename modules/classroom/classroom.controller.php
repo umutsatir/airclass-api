@@ -345,4 +345,38 @@ class ClassroomController extends BaseController {
 
         $stmt->close();
     }
+
+    public function post_classroom_leave() {
+        // Check if user is a student
+        if ($this->user['role'] != 'student') {
+            $this->sendError('Unauthorized: Only students can leave classrooms', 403);
+        }
+
+        // Find the student's active classroom
+        $query = "SELECT cs.id, cs.classroom_id, c.code 
+                 FROM classroom_student cs 
+                 JOIN classroom c ON cs.classroom_id = c.id 
+                 WHERE cs.student_id = ? AND cs.status = 1 AND c.status = 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bind_param("i", $this->user['id']);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($active_classroom = $result->fetch_assoc()) {
+            // Update classroom_student status to inactive
+            $query = "UPDATE classroom_student SET status = 0 WHERE id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("i", $active_classroom['id']);
+
+            if ($stmt->execute()) {
+                $this->sendResponse(null, 'Successfully left classroom ' . $active_classroom['code']);
+            } else {
+                $this->sendError('Failed to leave classroom: ' . $this->conn->error);
+            }
+        } else {
+            $this->sendError('No active classroom found', 404);
+        }
+
+        $stmt->close();
+    }
 } 

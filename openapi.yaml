@@ -545,6 +545,36 @@ paths:
                             schema:
                                 $ref: "#/components/schemas/ErrorResponse"
 
+    /classroom/leave:
+        post:
+            summary: Leave current classroom
+            description: |
+                Leave the current active classroom.
+                Only students can leave classrooms.
+                Sets the student's status to inactive (0) in the classroom_student table.
+            tags: [Classroom]
+            security:
+                - BearerAuth: []
+            responses:
+                "200":
+                    description: Successfully left classroom
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ApiResponse"
+                "403":
+                    description: Unauthorized - Only students can leave classrooms
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                    description: No active classroom found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
     /attendance:
         get:
             summary: Get attendance records
@@ -804,6 +834,62 @@ paths:
                                                       type: integer
                                                   path:
                                                       type: string
+
+    /upload-selfie:
+        post:
+            summary: Upload student selfie for attendance verification
+            description: |
+                Upload a selfie photo taken from the front camera before QR code scanning.
+                Only students can upload selfies.
+                The selfie is stored in uploads/selfies/{classroom_id} directory.
+            tags: [Attendance]
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            required:
+                                - classroom_id
+                                - selfie
+                            properties:
+                                classroom_id:
+                                    type: integer
+                                    description: ID of the classroom
+                                selfie:
+                                    type: string
+                                    format: binary
+                                    description: Selfie photo taken from front camera
+            responses:
+                "201":
+                    description: Selfie uploaded successfully
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  path:
+                                                      type: string
+                                                      description: Path to the uploaded selfie
+                "400":
+                    description: Invalid or missing selfie file
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "403":
+                    description: Unauthorized - Only students can upload selfies
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 
     /slide:
         get:

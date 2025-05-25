@@ -1,65 +1,111 @@
-name: Deploy to Server
+name: Deploy AirClass API
 
 on:
     push:
-        branches:
-            - stable
+        branches: [main]
+    workflow_dispatch:
 
 jobs:
     deploy:
         runs-on: ubuntu-latest
 
         steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v3
 
-            - name: Setup PHP
-              uses: shivammathur/setup-php@v2
+            - name: Deploy to server
+              uses: appleboy/ssh-action@master
               with:
-                  php-version: "8.2"
-                  extensions: mysqli, pdo_mysql
-                  coverage: none
+                  host: ${{ secrets.SERVER_HOST }}
+                  username: ${{ secrets.SERVER_USER }}
+                  key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  script: |
+                      # Create deployment directory if it doesn't exist
+                      mkdir -p /var/www/airclass-api
 
-            - name: Install dependencies
-              run: composer install --no-dev --optimize-autoloader
+                      # Backup current version
+                      if [ -d "/var/www/airclass-api" ]; then
+                        timestamp=$(date +%Y%m%d_%H%M%S)
+                        mv /var/www/airclass-api "/var/www/airclass-api_backup_$timestamp"
+                      fi
 
-            - name: Install SSHpass
-              run: sudo apt-get install -y sshpass
+                      # Create fresh directory
+                      mkdir -p /var/www/airclass-api
 
-            - name: Deploy
-              env:
-                  SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
-              run: |
-                  # Accept SSH host key
-                  mkdir -p ~/.ssh
-                  ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+            - name: Upload files to server
+              uses: appleboy/scp-action@master
+              with:
+                  host: ${{ secrets.SERVER_HOST }}
+                  username: ${{ secrets.SERVER_USER }}
+                  key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  source: ".,!node_modules,!tests,!vendor,!uploads,!storage/logs,!storage/framework,!storage/app,!storage/bootstrap/cache"
+                  target: "/var/www/airclass-api"
+                  strip_components: 0
 
-                  # Backup config file if it exists
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "\
-                    if [ -f '${{ secrets.DEPLOY_PATH }}/airclass-api/inc/config.php' ]; then \
-                      cp ${{ secrets.DEPLOY_PATH }}/airclass-api/inc/config.php ${{ secrets.DEPLOY_PATH }}/airclass-api/inc/config.php.backup; \
-                    fi"
+            - name: Setup server environment
+              uses: appleboy/ssh-action@master
+              with:
+                  host: ${{ secrets.SERVER_HOST }}
+                  username: ${{ secrets.SERVER_USER }}
+                  key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  script: |
+                      cd /var/www/airclass-api
 
-                  # Create airclass-api directory if it doesn't exist
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.DEPLOY_PATH }}/airclass-api"
+                      # Copy .env.example to .env if .env doesn't exist
+                      if [ ! -f .env ]; then
+                        cp .env.example .env
+                      fi
 
-                  # Upload files to server
-                  sshpass -p "$SERVER_PASSWORD" rsync -avz --delete \
-                    -e "ssh -o StrictHostKeyChecking=no" \
-                    --exclude '.git' \
-                    --exclude '.github' \
-                    --exclude '.env' \
-                    --exclude '.env.example' \
-                    --exclude 'README.md' \
-                    ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/airclass-api/
+                      # Create required directories
+                      mkdir -p uploads/images
+                      mkdir -p uploads/selfies
+                      mkdir -p uploads/slides
+                      mkdir -p storage/logs
+                      mkdir -p storage/framework
+                      mkdir -p storage/app
+                      mkdir -p storage/bootstrap/cache
 
-                  # Restore config file and set permissions
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "\
-                    cd ${{ secrets.DEPLOY_PATH }}/airclass-api && \
-                    if [ -f 'inc/config.php.backup' ]; then \
-                      mv inc/config.php.backup inc/config.php; \
-                    fi && \
-                    sudo -S chown -R www-data:www-data . <<< '$SERVER_PASSWORD' && \
-                    sudo -S chmod -R 755 . <<< '$SERVER_PASSWORD' && \
-                    sudo -S chmod -R 775 uploads logs <<< '$SERVER_PASSWORD' && \
-                    sudo -S systemctl restart php8.2-fpm <<< '$SERVER_PASSWORD'"
+                      # Set proper permissions
+                      chmod -R 755 uploads
+                      chmod -R 755 storage
+                      chmod -R 755 modules
+
+                      # Install composer dependencies
+                      composer install --no-dev --optimize-autoloader
+
+                      # Update database schema
+                      mysql -u${{ secrets.DB_USER }} -p${{ secrets.DB_PASSWORD }} ${{ secrets.DB_NAME }} << EOF
+                      -- Add type column to image table if it doesn't exist
+                      ALTER TABLE image ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'image';
+
+                      -- Create uploads directory table if it doesn't exist
+                      CREATE TABLE IF NOT EXISTS uploads (
+                          id INT AUTO_INCREMENT PRIMARY KEY,
+                          classroom_id INT NOT NULL,
+                          full_path VARCHAR(255) NOT NULL,
+                          type VARCHAR(20) DEFAULT 'image',
+                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                          FOREIGN KEY (classroom_id) REFERENCES classroom(id) ON DELETE CASCADE
+                      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                      -- Create indexes for better performance
+                      CREATE INDEX IF NOT EXISTS idx_uploads_classroom_id ON uploads(classroom_id);
+                      CREATE INDEX IF NOT EXISTS idx_uploads_type ON uploads(type);
+                      EOF
+
+                      # Clean up old backups (keep last 5)
+                      ls -dt /var/www/airclass-api_backup_* | tail -n +6 | xargs -r rm -rf
+
+            - name: Verify deployment
+              uses: appleboy/ssh-action@master
+              with:
+                  host: ${{ secrets.SERVER_HOST }}
+                  username: ${{ secrets.SERVER_USER }}
+                  key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  script: |
+                      # Check if the application is running
+                      if curl -s -f "https://${{ secrets.DOMAIN }}/health" > /dev/null; then
+                        echo "Deployment verified successfully!"
+                      else
+                        echo "Deployment verification failed!"
+                        exit 1
+                      fi

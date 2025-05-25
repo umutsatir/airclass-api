@@ -768,24 +768,26 @@ paths:
 
     /image:
         get:
-            summary: List images
-            tags: [Image]
+            summary: Get images
+            description: Retrieve images for a classroom or by ID
             security:
                 - BearerAuth: []
             parameters:
                 - name: classroom_id
                   in: query
+                  description: ID of the classroom to get images from
                   schema:
                       type: integer
-                  description: Filter by classroom ID
+                      format: int64
                 - name: id
                   in: query
+                  description: ID of a specific image to retrieve
                   schema:
                       type: integer
-                  description: Filter by image ID
+                      format: int64
             responses:
                 "200":
-                    description: List of images
+                    description: Images retrieved successfully
                     content:
                         application/json:
                             schema:
@@ -797,52 +799,22 @@ paths:
                                               type: array
                                               items:
                                                   $ref: "#/components/schemas/Image"
-        post:
-            summary: Upload image
-            tags: [Image]
-            security:
-                - BearerAuth: []
-            requestBody:
-                required: true
-                content:
-                    multipart/form-data:
-                        schema:
-                            type: object
-                            required:
-                                - classroom_id
-                                - image
-                            properties:
-                                classroom_id:
-                                    type: integer
-                                image:
-                                    type: string
-                                    format: binary
-            responses:
-                "201":
-                    description: Image uploaded
+                "400":
+                    description: Bad request
                     content:
                         application/json:
                             schema:
-                                allOf:
-                                    - $ref: "#/components/schemas/ApiResponse"
-                                    - type: object
-                                      properties:
-                                          data:
-                                              type: object
-                                              properties:
-                                                  image_id:
-                                                      type: integer
-                                                  path:
-                                                      type: string
+                                $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 
-    /upload-selfie:
         post:
-            summary: Upload student selfie for attendance verification
-            description: |
-                Upload a selfie photo taken from the front camera before QR code scanning.
-                Only students can upload selfies.
-                The selfie is stored in uploads/selfies/{classroom_id} directory.
-            tags: [Attendance]
+            summary: Upload a selfie
+            description: Upload a selfie image for attendance verification. Only students can upload selfies.
             security:
                 - BearerAuth: []
             requestBody:
@@ -852,16 +824,17 @@ paths:
                         schema:
                             type: object
                             required:
+                                - image
                                 - classroom_id
-                                - selfie
                             properties:
-                                classroom_id:
-                                    type: integer
-                                    description: ID of the classroom
-                                selfie:
+                                image:
                                     type: string
                                     format: binary
-                                    description: Selfie photo taken from front camera
+                                    description: The selfie image file (JPG or PNG, max 5MB)
+                                classroom_id:
+                                    type: integer
+                                    format: int64
+                                    description: ID of the classroom to upload the selfie to
             responses:
                 "201":
                     description: Selfie uploaded successfully
@@ -875,17 +848,27 @@ paths:
                                           data:
                                               type: object
                                               properties:
+                                                  image_id:
+                                                      type: integer
+                                                      format: int64
+                                                      description: ID of the uploaded image
                                                   path:
                                                       type: string
-                                                      description: Path to the uploaded selfie
+                                                      description: Relative path to the uploaded image
                 "400":
-                    description: Invalid or missing selfie file
+                    description: Bad request (invalid file type, size, or missing fields)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                    description: Unauthorized
                     content:
                         application/json:
                             schema:
                                 $ref: "#/components/schemas/ErrorResponse"
                 "403":
-                    description: Unauthorized - Only students can upload selfies
+                    description: Forbidden (not a student or not a member of the classroom)
                     content:
                         application/json:
                             schema:

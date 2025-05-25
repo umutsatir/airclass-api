@@ -49,74 +49,14 @@ class ImageController extends BaseController {
     }
 
     public function post_image() {
-        // Only teachers can upload images
-        if ($this->user['role'] !== 'teacher') {
-            $this->sendError('Unauthorized', 403);
-        }
-
-        $this->validateRequiredFields(['classroom_id']);
-
-        if (!isset($_FILES['image'])) {
-            $this->sendError('No image file uploaded');
-        }
-
-        $classroom_id = (int)$this->input['classroom_id'];
-        $file = $_FILES['image'];
-
-        // Validate file
-        $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
-        if (!in_array($file['type'], $allowed_types)) {
-            $this->sendError('Invalid file type. Only JPG, PNG and GIF are allowed');
-        }
-
-        if ($file['size'] > 5 * 1024 * 1024) { // 5MB limit
-            $this->sendError('File too large. Maximum size is 5MB');
-        }
-
-        // Create upload directory if it doesn't exist
-        $upload_dir = UPLOAD_DIR . 'images/' . $classroom_id . '/';
-        if (!file_exists($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-
-        // Generate unique filename
-        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $filename = uniqid() . '.' . $extension;
-        $full_path = $upload_dir . $filename;
-
-        // Move uploaded file
-        if (move_uploaded_file($file['tmp_name'], $full_path)) {
-            // Save to database
-            $relative_path = 'images/' . $classroom_id . '/' . $filename;
-            $query = "INSERT INTO image (classroom_id, full_path, type) VALUES (?, ?, 'image')";
-            $stmt = $this->conn->prepare($query);
-            $stmt->bind_param("is", $classroom_id, $relative_path);
-
-            if ($stmt->execute()) {
-                $this->sendResponse([
-                    'image_id' => $this->conn->insert_id,
-                    'path' => $relative_path
-                ], 'Image uploaded successfully', 201);
-            } else {
-                // Delete uploaded file if database insert fails
-                unlink($full_path);
-                $this->sendError('Failed to save image record: ' . $this->conn->error);
-            }
-            $stmt->close();
-        } else {
-            $this->sendError('Failed to upload image');
-        }
-    }
-
-    public function post_upload_selfie() {
         // Check if user is a student
         if ($this->user['role'] != 'student') {
             $this->sendError('Unauthorized: Only students can upload selfies', 403);
         }
 
         // Validate required fields
-        if (!isset($_FILES['selfie']) || !isset($_POST['classroom_id'])) {
-            $this->sendError('Missing required fields: selfie and classroom_id');
+        if (!isset($_FILES['image']) || !isset($_POST['classroom_id'])) {
+            $this->sendError('Missing required fields: image and classroom_id');
         }
 
         $classroom_id = (int)$_POST['classroom_id'];
@@ -143,7 +83,7 @@ class ImageController extends BaseController {
         $stmt->close();
 
         // Validate file
-        $file = $_FILES['selfie'];
+        $file = $_FILES['image'];
         if ($file['error'] !== UPLOAD_ERR_OK) {
             $this->sendError('File upload failed: ' . $this->getUploadErrorMessage($file['error']));
         }

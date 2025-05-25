@@ -58,7 +58,10 @@ jobs:
                   sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /var/www/html/airclass-api && \
                     if [ ! -f .env ]; then cp .env.example .env; fi && \
                     mkdir -p uploads/images uploads/selfies uploads/slides storage/logs storage/framework storage/app storage/bootstrap/cache && \
-                    chmod -R 755 uploads storage modules && \
+                    chmod -R 755 modules storage && \
+                    sudo chown -R www-data:www-data /var/www/html/airclass-api/uploads && \
+                    sudo chmod -R 777 /var/www/html/airclass-api/uploads && \
                     export COMPOSER_ALLOW_SUPERUSER=1 && \
                     composer install --no-dev --optimize-autoloader && \
+                    # Clean up old backups (keep last 5)
                     ls -dt /var/www/html/airclass-api_backup_* | tail -n +6 | xargs -r rm -rf"

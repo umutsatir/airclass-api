@@ -24,13 +24,13 @@ jobs:
                   ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
                   # Create deployment directory if it doesn't exist
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /var/www/airclass-api"
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /var/www/html/airclass-api"
 
                   # Backup current version
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "if [ -d '/var/www/airclass-api' ]; then timestamp=\$(date +%Y%m%d_%H%M%S); mv /var/www/airclass-api \"/var/www/airclass-api_backup_\$timestamp\"; fi"
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "if [ -d '/var/www/html/airclass-api' ]; then timestamp=\$(date +%Y%m%d_%H%M%S); mv /var/www/airclass-api \"/var/www/airclass-api_backup_\$timestamp\"; fi"
 
                   # Create fresh directory
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /var/www/airclass-api"
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /var/www/html/airclass-api"
 
             - name: Upload files to server
               env:
@@ -49,19 +49,19 @@ jobs:
                     --exclude 'storage/framework' \
                     --exclude 'storage/app' \
                     --exclude 'storage/bootstrap/cache' \
-                    ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/airclass-api/
+                    ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/html/airclass-api/
 
             - name: Setup server environment
               env:
                   SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
               run: |
-                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /var/www/airclass-api && \
+                  sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd /var/www/html/airclass-api && \
                     if [ ! -f .env ]; then cp .env.example .env; fi && \
                     mkdir -p uploads/images uploads/selfies uploads/slides storage/logs storage/framework storage/app storage/bootstrap/cache && \
                     chmod -R 755 uploads storage modules && \
                     export COMPOSER_ALLOW_SUPERUSER=1 && \
                     composer install --no-dev --optimize-autoloader && \
-                    ls -dt /var/www/airclass-api_backup_* | tail -n +6 | xargs -r rm -rf"
+                    ls -dt /var/www/html/airclass-api_backup_* | tail -n +6 | xargs -r rm -rf"
 
             - name: Verify deployment
               env:

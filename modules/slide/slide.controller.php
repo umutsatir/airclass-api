@@ -63,15 +63,19 @@ class SlideController extends BaseController {
         $classroom_id = (int)$this->input['classroom_id'];
         $file = $_FILES['slide'];
 
-        // Validate file
-        $allowed_types = ['application/pdf', 'application/vnd.ms-powerpoint', 
-                         'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
-        if (!in_array($file['type'], $allowed_types)) {
-            $this->sendError('Invalid file type. Only PDF and PowerPoint files are allowed');
+        // Validate file type - only accept PDF
+        if ($file['type'] !== 'application/pdf') {
+            $this->sendError('Only PDF files are allowed. Please convert your file to PDF before uploading.');
         }
 
         if ($file['size'] > 20 * 1024 * 1024) { // 20MB limit
             $this->sendError('File too large. Maximum size is 20MB');
+        }
+
+        // Validate file extension
+        $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if ($extension !== 'pdf') {
+            $this->sendError('Only PDF files are allowed. Please convert your file to PDF before uploading.');
         }
 
         // Create upload directory if it doesn't exist
@@ -81,7 +85,6 @@ class SlideController extends BaseController {
         }
 
         // Generate unique filename
-        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
         $filename = uniqid() . '.' . $extension;
         $full_path = $upload_dir . $filename;
 

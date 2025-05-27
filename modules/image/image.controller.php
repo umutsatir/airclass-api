@@ -133,23 +133,23 @@ class ImageController extends BaseController {
             $this->sendError('Failed to save uploaded file');
         }
 
-        // Save to database
+            // Save to database
         $relative_path = 'selfies/' . $classroom_id . '/' . $filename;
         $query = "INSERT INTO image (classroom_id, full_path, type) VALUES (?, ?, 'selfie')";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("is", $classroom_id, $relative_path);
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("is", $classroom_id, $relative_path);
 
-        if ($stmt->execute()) {
-            $this->sendResponse([
-                'image_id' => $this->conn->insert_id,
-                'path' => $relative_path
+            if ($stmt->execute()) {
+                $this->sendResponse([
+                    'image_id' => $this->conn->insert_id,
+                    'path' => $relative_path
             ], 'Selfie uploaded successfully', 201);
-        } else {
-            // Delete uploaded file if database insert fails
-            unlink($full_path);
+            } else {
+                // Delete uploaded file if database insert fails
+                unlink($full_path);
             $this->sendError('Failed to save selfie record: ' . $this->conn->error);
-        }
-        $stmt->close();
+            }
+            $stmt->close();
     }
 
     private function getUploadErrorMessage($error_code) {

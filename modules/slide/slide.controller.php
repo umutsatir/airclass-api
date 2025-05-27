@@ -102,9 +102,17 @@ class SlideController extends BaseController {
         }
 
         // Create upload directory if it doesn't exist
-        $upload_dir = UPLOAD_DIR . 'slides/' . $classroom_id . '/';
+        $upload_dir = rtrim(UPLOAD_DIR, '/') . '/slides/' . $classroom_id . '/';
         if (!file_exists($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
+            if (!@mkdir($upload_dir, 0777, true)) {
+                error_log("Failed to create directory: " . $upload_dir . " - Error: " . error_get_last()['message']);
+                $this->sendError('Failed to create upload directory. Please contact support.');
+            }
+            // Ensure directory is writable
+            if (!@chmod($upload_dir, 0777)) {
+                error_log("Failed to set permissions on directory: " . $upload_dir . " - Error: " . error_get_last()['message']);
+                $this->sendError('Failed to set directory permissions. Please contact support.');
+            }
         }
 
         // Generate unique filename

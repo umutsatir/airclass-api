@@ -18,6 +18,32 @@ components:
             scheme: bearer
             bearerFormat: JWT
 
+    responses:
+        BadRequest:
+            description: Bad request
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+        Unauthorized:
+            description: Unauthorized
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+        Forbidden:
+            description: Forbidden
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+        NotFound:
+            description: Not found
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
     schemas:
         ApiResponse:
             type: object
@@ -240,6 +266,39 @@ components:
                 user_name:
                     type: string
                 user_email:
+                    type: string
+                created_at:
+                    type: string
+                    format: date-time
+                updated_at:
+                    type: string
+                    format: date-time
+
+        SlideControl:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                slide_id:
+                    type: integer
+                    format: int64
+                classroom_id:
+                    type: integer
+                    format: int64
+                user_id:
+                    type: integer
+                    format: int64
+                action:
+                    type: string
+                    enum: [next, prev, goto]
+                slide_number:
+                    type: integer
+                    nullable: true
+                status:
+                    type: string
+                    enum: [pending, completed, cancelled]
+                user_name:
                     type: string
                 created_at:
                     type: string
@@ -1139,6 +1198,197 @@ paths:
                             schema:
                                 $ref: "#/components/schemas/ErrorResponse"
 
+    /slide-control:
+        post:
+            tags:
+                - Slide Control
+            summary: Create a new slide control request
+            description: Create a new slide control request to control presentation slides. Only teachers can create control requests.
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - slide_id
+                                - classroom_id
+                                - action
+                            properties:
+                                slide_id:
+                                    type: integer
+                                    description: ID of the slide to control
+                                classroom_id:
+                                    type: integer
+                                    description: ID of the classroom
+                                action:
+                                    type: string
+                                    enum: [next, prev, goto]
+                                    description: Action to perform on the slide
+                                slide_number:
+                                    type: integer
+                                    nullable: true
+                                    description: Required only for 'goto' action, specifies which slide number to go to
+            responses:
+                "201":
+                    description: Slide control request created successfully
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  control_id:
+                                                      type: integer
+                                                      example: 123
+                                                  status:
+                                                      type: string
+                                                      example: pending
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+
+        get:
+            tags:
+                - Slide Control
+            summary: Get slide control requests
+            description: Retrieve slide control requests with optional filtering
+            security:
+                - BearerAuth: []
+            parameters:
+                - name: classroom_id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by classroom ID
+                - name: slide_id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Filter by slide ID
+                - name: status
+                  in: query
+                  schema:
+                      type: string
+                      enum: [pending, completed, cancelled]
+                  description: Filter by status
+                - name: id
+                  in: query
+                  schema:
+                      type: integer
+                  description: Get specific control request by ID
+            responses:
+                "200":
+                    description: Slide control requests retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: array
+                                              items:
+                                                  $ref: "#/components/schemas/SlideControl"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+
+        put:
+            tags:
+                - Slide Control
+            summary: Update slide control status
+            description: Update the status of a slide control request. Only the teacher who created the request can update it.
+            security:
+                - BearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - id
+                                - status
+                            properties:
+                                id:
+                                    type: integer
+                                    description: ID of the control request to update
+                                status:
+                                    type: string
+                                    enum: [pending, completed, cancelled]
+                                    description: New status for the control request
+            responses:
+                "200":
+                    description: Slide control status updated successfully
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/ApiResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  id:
+                                                      type: integer
+                                                      example: 123
+                                                  status:
+                                                      type: string
+                                                      example: completed
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+
+        delete:
+            tags:
+                - Slide Control
+            summary: Delete slide control request
+            description: Delete a slide control request. Only the teacher who created the request can delete it.
+            security:
+                - BearerAuth: []
+            parameters:
+                - name: id
+                  in: query
+                  required: true
+                  schema:
+                      type: integer
+                  description: ID of the control request to delete
+            responses:
+                "200":
+                    description: Slide control deleted successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ApiResponse"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+
 tags:
     - name: Auth
       description: Authentication endpoints
@@ -1152,3 +1402,5 @@ tags:
       description: Slide management endpoints
     - name: Request
       description: Request management endpoints
+    - name: Slide Control
+      description: Slide control management endpoints

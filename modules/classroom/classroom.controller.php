@@ -145,7 +145,9 @@ class ClassroomController extends BaseController {
                 // Get the updated classroom data
                 $query = "SELECT c.*, 
                                 u.name as teacher_name,
-                                (SELECT COUNT(*) FROM attendance a WHERE a.classroom_id = c.id AND DATE(a.created_at) = CURDATE()) as attendance_count
+                                (SELECT COUNT(*) FROM attendance a 
+                                 JOIN attendance_code ac ON a.attendance_session_id = ac.id 
+                                 WHERE ac.classroom_id = c.id AND DATE(a.created_at) = CURDATE()) as attendance_count
                          FROM classroom c 
                          LEFT JOIN user u ON c.teacher_id = u.id 
                          WHERE c.id = ?";
@@ -287,7 +289,7 @@ class ClassroomController extends BaseController {
         // Check if user is already in this classroom
         $query = "SELECT cs.id, cs.status 
                  FROM classroom_student cs 
-                 WHERE cs.classroom_id = ? AND cs.student_id = ?";
+                 WHERE cs.classroom_id = ? AND cs.student_id =?";
         $stmt = $this->conn->prepare($query);
         $stmt->bind_param("ii", $classroom['id'], $this->user['id']);
         $stmt->execute();

@@ -49,10 +49,6 @@ class SlideController extends BaseController {
     }
 
     public function post_slide() {
-        // Only teachers can upload slides
-        if ($this->user['role'] !== 'teacher') {
-            $this->sendError('Unauthorized', 403);
-        }
 
         $this->validateRequiredFields(['classroom_id']);
 
@@ -79,8 +75,8 @@ class SlideController extends BaseController {
         }
 
         // Create upload directory if it doesn't exist
-        $upload_dir = UPLOAD_DIR . 'slides/' . $classroom_id . '/';
-        if (!file_exists($upload_dir)) {
+        $upload_dir = rtrim(UPLOAD_DIR, '/') . '/slides/' . $classroom_id . '/';
+        if (!file_exists($upload_dir)) {    
             mkdir($upload_dir, 0777, true);
         }
 
